@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildSkillMapIndex,
+  endorsementSourceTypeForRole,
   groupMemberSkills,
   normalizeSkillName,
   rankSkillMatches,
@@ -59,4 +60,11 @@ test('groupMemberSkills orders by group sort order and skill name', () => {
 
   assert.deepEqual(grouped.map((group) => group.group.name), ['Debugging', 'Git']);
   assert.deepEqual(grouped[1].items.map((item) => item.skill.name), ['Conflict resolution']);
+});
+
+test('endorsementSourceTypeForRole maps workspace admins to admin and members to peer', () => {
+  assert.equal(endorsementSourceTypeForRole('owner'), 'admin');
+  assert.equal(endorsementSourceTypeForRole('admin'), 'admin');
+  assert.equal(endorsementSourceTypeForRole('member'), 'peer');
+  assert.equal(endorsementSourceTypeForRole(undefined), 'peer');
 });

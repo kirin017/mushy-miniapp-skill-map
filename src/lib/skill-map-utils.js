@@ -6,6 +6,10 @@ export function displayNameForMember(member) {
   return member?.full_name || member?.user_id?.slice(0, 8) || 'Unknown';
 }
 
+export function endorsementSourceTypeForRole(role) {
+  return role === 'owner' || role === 'admin' ? 'admin' : 'peer';
+}
+
 export function buildSkillMapIndex({ groups = [], skills = [], memberSkills = [], endorsements = [] }) {
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const skillsById = new Map(skills.map((skill) => [
