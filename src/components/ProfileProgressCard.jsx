@@ -4,6 +4,7 @@ export default function ProfileProgressCard({ progress, saving = false, onAddSki
   if (!progress) return null;
 
   const percent = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+  const items = progress.items || [];
   const suggestions = progress.suggestions || [];
 
   return (
@@ -25,15 +26,17 @@ export default function ProfileProgressCard({ progress, saving = false, onAddSki
         aria-valuemin="0"
         aria-valuemax={progress.total}
         aria-valuenow={progress.completed}
+        aria-valuetext={`${progress.completed}/${progress.total} bước`}
       >
         <span style={{ width: `${percent}%` }} />
       </div>
 
       <ul className="profile-progress__checklist" aria-label="Các bước hoàn thiện skill profile">
-        {progress.items.map((item) => (
+        {items.map((item) => (
           <li
             className={`profile-progress__item${item.done ? ' profile-progress__item--done' : ''}`}
             key={item.id}
+            aria-label={`${item.label}: ${item.done ? 'đã xong' : 'chưa xong'}`}
           >
             <span className="profile-progress__check" aria-hidden="true" />
             {item.label}
