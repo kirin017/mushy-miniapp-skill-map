@@ -9,7 +9,7 @@ export default function ProfileProgressCard({ progress, saving = false, onAddSki
 
   return (
     <section className="mushy-card profile-progress" aria-labelledby="profile-progress-title">
-      <div className="profile-progress__header">
+      <div className="profile-progress__head">
         <div className="profile-progress__copy">
           <h2 id="profile-progress-title">Hoàn thiện skill profile</h2>
           <p>Một profile đủ rõ giúp team biết khi nào nên hỏi bạn và mentor thấy nhóm đang thiếu gì.</p>
