@@ -1,0 +1,15 @@
+{
+  "iteration": 0,
+  "status": "planned",
+  "agent_split": "Spawn after foundation tasks",
+  "reason": "Helpers, migration, and data API are shared contracts; UI components can be split after those files exist.",
+  "parallelization": {
+    "foundation": "local controller",
+    "lanes": [
+      "Explore/App workflow",
+      "My Skills/typeahead/status components",
+      "Member Detail/endorsement modal",
+      "CSS/visual QA sidecar"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "locked": true,
+  "intent": "DELIVER",
+  "target": 7,
+  "target_min": 6,
+  "max_iter": 3,
+  "orchestration_mode": "Auto recommended: sequential foundation, then parallel UI agents",
+  "criteria": [
+    {
+      "name": "correctness",
+      "description": "Data model, RLS intent, app actions, and helper ranking match the approved spec."
+    },
+    {
+      "name": "completeness",
+      "description": "Explore, My Skills, Member Detail, seed taxonomy, and endorsement flows are present."
+    },
+    {
+      "name": "edge_cases",
+      "description": "Handles empty states, missing profile fields, duplicate skill names, self-endorsement prevention, and mutation errors."
+    },
+    {
+      "name": "craft",
+      "description": "Mobile-first UI, restrained dashboard layout, and no visible endorsement leaderboard."
+    },
+    {
+      "name": "verification",
+      "description": "Tests and build pass, with browser smoke documented when the app can run."
+    }
+  ]
+}
