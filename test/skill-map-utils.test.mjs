@@ -187,7 +187,9 @@ test('getOnboardingSkillSuggestions excludes current user skills and follows gro
 });
 
 function profileProgressItem(progress, id) {
-  return progress.items.find((item) => item.id === id);
+  const item = progress.items.find((candidate) => candidate.id === id);
+  assert.ok(item, `Expected profile progress item "${id}" to exist`);
+  return item;
 }
 
 test('getProfileProgress returns empty progress and suggestions for a new profile', () => {
@@ -273,4 +275,37 @@ test('getProfileProgress treats a sent endorsement as endorsement progress', () 
   });
 
   assert.equal(profileProgressItem(progress, 'endorsement').done, true);
+});
+
+test('getProfileProgress only counts member skills owned by the requested user', () => {
+  const groups = [
+    { id: 'g1', name: 'Coding', sort_order: 10 },
+    { id: 'g2', name: 'Testing', sort_order: 20 },
+    { id: 'g3', name: 'Git', sort_order: 30 },
+  ];
+  const skills = [
+    { id: 's1', name: 'React', group_id: 'g1' },
+    { id: 's2', name: 'Test cases', group_id: 'g2' },
+    { id: 's3', name: 'Pull requests', group_id: 'g3' },
+  ];
+  const memberSkills = [
+    { id: 'ms1', user_id: 'u1', skill_id: 's1', status: 'usable' },
+    { id: 'ms2', user_id: 'u2', skill_id: 's2', status: 'learning' },
+    { id: 'ms3', user_id: 'u2', skill_id: 's3', status: 'learning' },
+  ];
+
+  const progress = getProfileProgress({
+    groups,
+    skills,
+    memberSkills,
+    endorsements: [],
+    userId: 'u1',
+  });
+
+  assert.equal(progress.completed, 1);
+  assert.equal(progress.complete, false);
+  assert.equal(profileProgressItem(progress, 'skill-count').done, false);
+  assert.equal(profileProgressItem(progress, 'group-coverage').done, false);
+  assert.equal(profileProgressItem(progress, 'usable-skill').done, true);
+  assert.equal(profileProgressItem(progress, 'learning-skill').done, false);
 });
