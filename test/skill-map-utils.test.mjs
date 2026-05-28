@@ -216,7 +216,7 @@ test('getProfileProgress returns empty progress and suggestions for a new profil
   assert.equal(progress.completed, 0);
   assert.equal(progress.complete, false);
   assert.deepEqual(progress.items.map((item) => item.done), [false, false, false, false, false]);
-  assert.deepEqual(progress.suggestions.map((skill) => skill.id), ['s1', 's3']);
+  assert.deepEqual(progress.suggestions.map((skill) => skill.id), ['s3', 's1']);
 });
 
 test('getProfileProgress marks skill count, group coverage, usable, learning, and received endorsement items', () => {

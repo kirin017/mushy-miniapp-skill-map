@@ -40,6 +40,71 @@ export function getOnboardingSkillSuggestions({
     .slice(0, limit);
 }
 
+export function getProfileProgress({
+  groups = [],
+  skills = [],
+  memberSkills = [],
+  endorsements = [],
+  userId,
+  suggestionLimit = 6,
+}) {
+  const skillsById = new Map(skills.map((skill) => [skill.id, skill]));
+  const userMemberSkills = memberSkills.filter((row) => row.user_id === userId);
+  const userMemberSkillIds = new Set(userMemberSkills.map((row) => row.id));
+  const userGroupIds = new Set(
+    userMemberSkills
+      .map((row) => skillsById.get(row.skill_id)?.group_id)
+      .filter(Boolean),
+  );
+  const hasEndorsement = endorsements.some((endorsement) => (
+    userMemberSkillIds.has(endorsement.member_skill_id)
+    || endorsement.endorser_user_id === userId
+  ));
+
+  const items = [
+    {
+      id: 'skill-count',
+      label: 'Thêm ít nhất 3 skill',
+      done: userMemberSkills.length >= 3,
+    },
+    {
+      id: 'group-coverage',
+      label: 'Có skill ở ít nhất 2 nhóm',
+      done: userGroupIds.size >= 2,
+    },
+    {
+      id: 'usable-skill',
+      label: 'Có 1 skill dùng được',
+      done: userMemberSkills.some((row) => row.status === 'usable'),
+    },
+    {
+      id: 'learning-skill',
+      label: 'Giữ 1 skill đang học',
+      done: userMemberSkills.some((row) => row.status === 'learning'),
+    },
+    {
+      id: 'endorsement',
+      label: 'Có 1 lượt endorse',
+      done: hasEndorsement,
+    },
+  ];
+  const completed = items.filter((item) => item.done).length;
+
+  return {
+    total: items.length,
+    completed,
+    complete: completed === items.length,
+    items,
+    suggestions: getOnboardingSkillSuggestions({
+      groups,
+      skills,
+      memberSkills,
+      userId,
+      limit: suggestionLimit,
+    }),
+  };
+}
+
 export function buildSkillMapIndex({ groups = [], skills = [], memberSkills = [], endorsements = [] }) {
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const skillsById = new Map(skills.map((skill) => [
