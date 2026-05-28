@@ -309,3 +309,38 @@ test('getProfileProgress only counts member skills owned by the requested user',
   assert.equal(profileProgressItem(progress, 'usable-skill').done, true);
   assert.equal(profileProgressItem(progress, 'learning-skill').done, false);
 });
+
+test('getProfileProgress does not count another user usable skill as usable progress', () => {
+  const progress = getProfileProgress({
+    groups: [{ id: 'g1', name: 'Coding', sort_order: 10 }],
+    skills: [
+      { id: 's1', name: 'React', group_id: 'g1' },
+      { id: 's2', name: 'API integration', group_id: 'g1' },
+    ],
+    memberSkills: [
+      { id: 'ms1', user_id: 'u1', skill_id: 's1', status: 'learning' },
+      { id: 'ms2', user_id: 'u2', skill_id: 's2', status: 'usable' },
+    ],
+    endorsements: [],
+    userId: 'u1',
+  });
+
+  assert.equal(profileProgressItem(progress, 'usable-skill').done, false);
+});
+
+test('getProfileProgress does not count unrelated endorsements as endorsement progress', () => {
+  const progress = getProfileProgress({
+    groups: [{ id: 'g1', name: 'Coding', sort_order: 10 }],
+    skills: [{ id: 's1', name: 'React', group_id: 'g1' }],
+    memberSkills: [
+      { id: 'ms1', user_id: 'u1', skill_id: 's1', status: 'usable' },
+      { id: 'ms2', user_id: 'u2', skill_id: 's1', status: 'usable' },
+    ],
+    endorsements: [
+      { id: 'e1', member_skill_id: 'ms2', endorser_user_id: 'u3' },
+    ],
+    userId: 'u1',
+  });
+
+  assert.equal(profileProgressItem(progress, 'endorsement').done, false);
+});
