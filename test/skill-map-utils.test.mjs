@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { tryGetContext } from '../src/lib/context.js';
 import {
   buildSkillMapIndex,
   endorsementSourceTypeForRole,
@@ -67,4 +68,21 @@ test('endorsementSourceTypeForRole maps workspace admins to admin and members to
   assert.equal(endorsementSourceTypeForRole('admin'), 'admin');
   assert.equal(endorsementSourceTypeForRole('member'), 'peer');
   assert.equal(endorsementSourceTypeForRole(undefined), 'peer');
+});
+
+test('tryGetContext returns an error instead of throwing when context is missing', () => {
+  const result = tryGetContext(() => {
+    throw new Error('missing context');
+  });
+
+  assert.equal(result.ctx, null);
+  assert.equal(result.error.message, 'missing context');
+});
+
+test('tryGetContext returns context when getter succeeds', () => {
+  const ctx = { workspaceId: 'workspace-1', userId: 'user-1' };
+  const result = tryGetContext(() => ctx);
+
+  assert.equal(result.ctx, ctx);
+  assert.equal(result.error, null);
 });

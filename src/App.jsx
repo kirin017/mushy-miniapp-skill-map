@@ -5,6 +5,7 @@ import ShareManageModal from './components/ShareManageModal.jsx';
 import SkillStatusBadge from './components/SkillStatusBadge.jsx';
 import SkillTypeahead from './components/SkillTypeahead.jsx';
 import { useDialog } from './components/Dialog.jsx';
+import { tryGetContext } from './lib/context.js';
 import {
   deleteMemberSkill,
   endorseMemberSkill,
@@ -18,6 +19,21 @@ import { displayNameForMember, rankSkillMatches } from './lib/skill-map-utils.js
 import './App.css';
 
 export default function App() {
+  const { error: contextError } = tryGetContext();
+  if (contextError) {
+    return (
+      <div className="mushy-page skill-map-page">
+        <section className="mushy-card error-card">
+          {contextError.message}
+        </section>
+      </div>
+    );
+  }
+
+  return <SkillMapApp />;
+}
+
+function SkillMapApp() {
   const dialog = useDialog();
   const { activeScope, ctx, ctxError, dataset, error, index, loading, refresh } = useSkillMapData();
   const [query, setQuery] = useState('');
