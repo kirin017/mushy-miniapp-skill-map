@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import MemberDetailModal from './components/MemberDetailModal.jsx';
+import ProfileProgressCard from './components/ProfileProgressCard.jsx';
 import ScopeSwitcher from './components/ScopeSwitcher.jsx';
 import ShareManageModal from './components/ShareManageModal.jsx';
 import SkillStatusBadge from './components/SkillStatusBadge.jsx';
@@ -18,9 +19,8 @@ import { isSkillMapMockMode } from './lib/skill-map-mock.js';
 import { useSkillMapData } from './lib/useSkillMapData.js';
 import {
   displayNameForMember,
-  getOnboardingSkillSuggestions,
+  getProfileProgress,
   rankSkillMatches,
-  shouldShowSkillOnboarding,
 } from './lib/skill-map-utils.js';
 import './App.css';
 
@@ -57,7 +57,6 @@ function SkillMapApp() {
   const mySkills = ctx && canEditOwnProfile ? index.memberSkillsByUser.get(ctx.userId) || [] : [];
   const selectedMember = dataset.members.find((member) => member.user_id === selectedMemberId);
   const selectedMemberSkills = selectedMemberId ? index.memberSkillsByUser.get(selectedMemberId) || [] : [];
-  const showOnboarding = shouldShowSkillOnboarding({ canEditOwnProfile, loading, mySkills });
 
   const visibleSkills = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -71,13 +70,15 @@ function SkillMapApp() {
   const activeSkillAlreadyMine = activeSkill ? mySkills.some((row) => row.skill_id === activeSkill.id) : false;
   const canAddActiveSkill = Boolean(canEditOwnProfile && activeSkill && !activeSkillAlreadyMine);
 
-  const onboardingSuggestions = useMemo(() => getOnboardingSkillSuggestions({
+  const profileProgress = useMemo(() => getProfileProgress({
     groups: dataset.groups,
     skills: dataset.skills,
     memberSkills: dataset.memberSkills,
+    endorsements: dataset.endorsements,
     userId: ctx?.userId,
-    limit: 6,
-  }), [ctx?.userId, dataset.groups, dataset.memberSkills, dataset.skills]);
+    suggestionLimit: 6,
+  }), [ctx?.userId, dataset.endorsements, dataset.groups, dataset.memberSkills, dataset.skills]);
+  const showProfileProgress = Boolean(canEditOwnProfile && !loading && !profileProgress.complete);
 
   const rankedResults = useMemo(() => {
     if (!activeSkill) return [];
@@ -245,10 +246,10 @@ function SkillMapApp() {
         </section>
       )}
 
-      {showOnboarding && (
-        <QuickStartPanel
+      {showProfileProgress && (
+        <ProfileProgressCard
+          progress={profileProgress}
           saving={saving}
-          suggestions={onboardingSuggestions}
           onAddSkill={quickAddSkill}
         />
       )}
@@ -443,35 +444,6 @@ function SkillResults({
         );
       })}
     </div>
-  );
-}
-
-function QuickStartPanel({ saving, suggestions, onAddSkill }) {
-  return (
-    <section className="mushy-card quick-start">
-      <div className="quick-start__copy">
-        <span className="quick-start__step">Bắt đầu trong 10 giây</span>
-        <h2>Khai báo 3 skill đầu tiên</h2>
-        <p>
-          Skill Map chỉ hữu ích khi mọi người tự khai báo vài kỹ năng. Chọn nhanh các skill bạn có thể support team.
-        </p>
-      </div>
-      <div className="quick-start__actions" aria-label="Gợi ý skill để thêm nhanh">
-        {suggestions.length === 0 ? (
-          <span className="quick-start__empty">Bạn đã thêm hết các skill gợi ý hiện có.</span>
-        ) : suggestions.map((skill) => (
-          <button
-            className="quick-skill"
-            disabled={saving}
-            key={skill.id}
-            type="button"
-            onClick={() => onAddSkill(skill)}
-          >
-            + {skill.name}
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 
