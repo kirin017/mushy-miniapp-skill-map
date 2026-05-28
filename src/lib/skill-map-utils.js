@@ -10,6 +10,36 @@ export function endorsementSourceTypeForRole(role) {
   return role === 'owner' || role === 'admin' ? 'admin' : 'peer';
 }
 
+export function shouldShowSkillOnboarding({ canEditOwnProfile, loading, mySkills = [] }) {
+  return Boolean(canEditOwnProfile) && !loading && mySkills.length === 0;
+}
+
+export function getOnboardingSkillSuggestions({
+  groups = [],
+  skills = [],
+  memberSkills = [],
+  userId,
+  limit = 6,
+}) {
+  const groupsById = new Map(groups.map((group) => [group.id, group]));
+  const declaredByUser = new Set(
+    memberSkills
+      .filter((row) => row.user_id === userId)
+      .map((row) => row.skill_id),
+  );
+
+  return skills
+    .filter((skill) => !declaredByUser.has(skill.id))
+    .slice()
+    .sort((a, b) => {
+      const aGroupOrder = groupsById.get(a.group_id)?.sort_order ?? 999;
+      const bGroupOrder = groupsById.get(b.group_id)?.sort_order ?? 999;
+      if (aGroupOrder !== bGroupOrder) return aGroupOrder - bGroupOrder;
+      return (a.name || '').localeCompare(b.name || '', 'vi');
+    })
+    .slice(0, limit);
+}
+
 export function buildSkillMapIndex({ groups = [], skills = [], memberSkills = [], endorsements = [] }) {
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const skillsById = new Map(skills.map((skill) => [

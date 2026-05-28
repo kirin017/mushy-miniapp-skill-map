@@ -1,0 +1,22 @@
+{
+  "exit_code": "SUCCESS",
+  "best_iteration": 1,
+  "target": 7,
+  "target_min": 6,
+  "composite": 7.75,
+  "scores": {
+    "correctness": 8,
+    "completeness": 8,
+    "edge_cases": 8,
+    "craft": 7
+  },
+  "verification": {
+    "npm_test": "pass: 11 tests, 0 failures",
+    "npm_run_build": "pass: vite production build succeeded",
+    "browser_smoke": "pass: mock onboarding quick-start and Explore empty CTA verified at /?mock=1"
+  },
+  "trace": {
+    "emitted": false,
+    "reason": "Trace store path is outside the writable workspace sandbox in this session."
+  }
+}

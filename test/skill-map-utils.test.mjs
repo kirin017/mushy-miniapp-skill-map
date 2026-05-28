@@ -9,9 +9,11 @@ import {
 import {
   buildSkillMapIndex,
   endorsementSourceTypeForRole,
+  getOnboardingSkillSuggestions,
   groupMemberSkills,
   normalizeSkillName,
   rankSkillMatches,
+  shouldShowSkillOnboarding,
 } from '../src/lib/skill-map-utils.js';
 
 test('normalizeSkillName trims, collapses whitespace, and lowercases', () => {
@@ -132,4 +134,53 @@ test('createSkillMapMockStore mutates current user member skills in memory', () 
   store.deleteMemberSkill({ id: row.id, workspaceId: MOCK_CONTEXT.workspaceId });
   const afterDelete = store.getDataset();
   assert.equal(afterDelete.memberSkills.some((item) => item.id === row.id), false);
+});
+
+test('shouldShowSkillOnboarding only prompts editable users with no skills', () => {
+  assert.equal(shouldShowSkillOnboarding({
+    canEditOwnProfile: true,
+    loading: false,
+    mySkills: [],
+  }), true);
+  assert.equal(shouldShowSkillOnboarding({
+    canEditOwnProfile: true,
+    loading: false,
+    mySkills: [{ id: 'ms1' }],
+  }), false);
+  assert.equal(shouldShowSkillOnboarding({
+    canEditOwnProfile: false,
+    loading: false,
+    mySkills: [],
+  }), false);
+  assert.equal(shouldShowSkillOnboarding({
+    canEditOwnProfile: true,
+    loading: true,
+    mySkills: [],
+  }), false);
+});
+
+test('getOnboardingSkillSuggestions excludes current user skills and follows group order', () => {
+  const groups = [
+    { id: 'g2', name: 'Git', sort_order: 20 },
+    { id: 'g1', name: 'Coding', sort_order: 10 },
+  ];
+  const skills = [
+    { id: 's2', name: 'Pull requests', group_id: 'g2' },
+    { id: 's1', name: 'React', group_id: 'g1' },
+    { id: 's3', name: 'API integration', group_id: 'g1' },
+  ];
+  const memberSkills = [
+    { id: 'ms1', user_id: 'u1', skill_id: 's1' },
+    { id: 'ms2', user_id: 'u2', skill_id: 's2' },
+  ];
+
+  const suggestions = getOnboardingSkillSuggestions({
+    groups,
+    skills,
+    memberSkills,
+    userId: 'u1',
+    limit: 3,
+  });
+
+  assert.deepEqual(suggestions.map((skill) => skill.id), ['s3', 's2']);
 });

@@ -16,7 +16,12 @@ import {
 } from './lib/skill-map-api.js';
 import { isSkillMapMockMode } from './lib/skill-map-mock.js';
 import { useSkillMapData } from './lib/useSkillMapData.js';
-import { displayNameForMember, rankSkillMatches } from './lib/skill-map-utils.js';
+import {
+  displayNameForMember,
+  getOnboardingSkillSuggestions,
+  rankSkillMatches,
+  shouldShowSkillOnboarding,
+} from './lib/skill-map-utils.js';
 import './App.css';
 
 export default function App() {
@@ -52,6 +57,7 @@ function SkillMapApp() {
   const mySkills = ctx && canEditOwnProfile ? index.memberSkillsByUser.get(ctx.userId) || [] : [];
   const selectedMember = dataset.members.find((member) => member.user_id === selectedMemberId);
   const selectedMemberSkills = selectedMemberId ? index.memberSkillsByUser.get(selectedMemberId) || [] : [];
+  const showOnboarding = shouldShowSkillOnboarding({ canEditOwnProfile, loading, mySkills });
 
   const visibleSkills = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -62,6 +68,16 @@ function SkillMapApp() {
   }, [dataset.skills, groupId, query]);
 
   const activeSkill = visibleSkills.find((skill) => skill.id === selectedSkillId) || visibleSkills[0] || null;
+  const activeSkillAlreadyMine = activeSkill ? mySkills.some((row) => row.skill_id === activeSkill.id) : false;
+  const canAddActiveSkill = Boolean(canEditOwnProfile && activeSkill && !activeSkillAlreadyMine);
+
+  const onboardingSuggestions = useMemo(() => getOnboardingSkillSuggestions({
+    groups: dataset.groups,
+    skills: dataset.skills,
+    memberSkills: dataset.memberSkills,
+    userId: ctx?.userId,
+    limit: 6,
+  }), [ctx?.userId, dataset.groups, dataset.memberSkills, dataset.skills]);
 
   const rankedResults = useMemo(() => {
     if (!activeSkill) return [];
@@ -121,6 +137,29 @@ function SkillMapApp() {
         });
       }
 
+      setSelectedSkillId(skill.id);
+    }, 'Không thêm được skill');
+  }
+
+  async function quickAddSkill(skill) {
+    if (!canEditOwnProfile || !ctx || !skill) return;
+
+    await runMutation(async () => {
+      if (mockMode) {
+        mockStore.addMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status: 'usable',
+        });
+      } else {
+        await saveMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status: 'usable',
+        });
+      }
       setSelectedSkillId(skill.id);
     }, 'Không thêm được skill');
   }
@@ -206,6 +245,14 @@ function SkillMapApp() {
         </section>
       )}
 
+      {showOnboarding && (
+        <QuickStartPanel
+          saving={saving}
+          suggestions={onboardingSuggestions}
+          onAddSkill={quickAddSkill}
+        />
+      )}
+
       <main className="main-grid">
         <section className="mushy-card explore-panel">
           <div className="section-head">
@@ -247,6 +294,8 @@ function SkillMapApp() {
             rankedResults={rankedResults}
             selectedSkillId={selectedSkillId}
             skills={visibleSkills}
+            canAddActiveSkill={canAddActiveSkill}
+            onAddActiveSkill={quickAddSkill}
             onOpenMember={setSelectedMemberId}
             onPickSkill={setSelectedSkillId}
           />
@@ -274,7 +323,11 @@ function SkillMapApp() {
               />
 
               <div className="my-skill-list">
-                {mySkills.length === 0 && <p className="empty-copy">Bạn chưa khai báo skill nào.</p>}
+                {mySkills.length === 0 && (
+                  <p className="empty-copy">
+                    Bạn chưa khai báo skill nào. Chọn nhanh ở phần gợi ý phía trên hoặc nhập skill riêng tại đây.
+                  </p>
+                )}
                 {mySkills.map((row) => (
                   <div className="my-skill-row" key={row.id}>
                     <div>
@@ -318,8 +371,10 @@ function SkillMapApp() {
 
 function SkillResults({
   activeSkill,
+  canAddActiveSkill,
   index,
   loading,
+  onAddActiveSkill,
   onOpenMember,
   onPickSkill,
   rankedResults,
@@ -354,6 +409,15 @@ function SkillResults({
         <div className="result-empty">
           <h3>{activeSkill?.name}</h3>
           <p>Chưa có ai khai báo skill này.</p>
+          {canAddActiveSkill && activeSkill && (
+            <button
+              className="mushy-btn mushy-btn--primary result-empty__action"
+              type="button"
+              onClick={() => onAddActiveSkill(activeSkill)}
+            >
+              Thêm skill này vào profile
+            </button>
+          )}
         </div>
       ) : rankedResults.map((result) => {
         const related = index.memberSkillsByUser.get(result.member.user_id) || [];
@@ -379,6 +443,35 @@ function SkillResults({
         );
       })}
     </div>
+  );
+}
+
+function QuickStartPanel({ saving, suggestions, onAddSkill }) {
+  return (
+    <section className="mushy-card quick-start">
+      <div className="quick-start__copy">
+        <span className="quick-start__step">Bắt đầu trong 10 giây</span>
+        <h2>Khai báo 3 skill đầu tiên</h2>
+        <p>
+          Skill Map chỉ hữu ích khi mọi người tự khai báo vài kỹ năng. Chọn nhanh các skill bạn có thể support team.
+        </p>
+      </div>
+      <div className="quick-start__actions" aria-label="Gợi ý skill để thêm nhanh">
+        {suggestions.length === 0 ? (
+          <span className="quick-start__empty">Bạn đã thêm hết các skill gợi ý hiện có.</span>
+        ) : suggestions.map((skill) => (
+          <button
+            className="quick-skill"
+            disabled={saving}
+            key={skill.id}
+            type="button"
+            onClick={() => onAddSkill(skill)}
+          >
+            + {skill.name}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

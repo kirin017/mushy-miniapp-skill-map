@@ -69,6 +69,96 @@ body {
   gap: 12px;
 }
 
+.quick-start {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 12px;
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--hairline));
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 247, 0.92)),
+    var(--surface);
+}
+
+.quick-start__copy {
+  min-width: 0;
+}
+
+.quick-start__step {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-soft) 70%, #fff);
+  color: var(--brand-pressed);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 9px;
+}
+
+.quick-start h2 {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 850;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.quick-start p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.quick-start__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: start;
+}
+
+.quick-skill {
+  appearance: none;
+  min-height: 34px;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, var(--hairline));
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+  padding: 0 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 140ms ease, border-color 140ms ease, transform 100ms ease;
+}
+
+.quick-skill:hover {
+  border-color: color-mix(in srgb, var(--brand) 52%, var(--hairline));
+  background: color-mix(in srgb, var(--brand-soft) 46%, #fff);
+}
+
+.quick-skill:active {
+  transform: scale(0.98);
+}
+
+.quick-skill:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.quick-start__empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .explore-panel,
 .my-skills-panel {
   min-width: 0;
@@ -136,6 +226,7 @@ body {
 .chip:focus-visible,
 .skill-pill:focus-visible,
 .member-card:focus-visible,
+.quick-skill:focus-visible,
 .ghost-link:focus-visible,
 .text-danger:focus-visible,
 .icon-button:focus-visible,
@@ -282,6 +373,10 @@ body {
 .result-empty p {
   font-size: 12px;
   line-height: 1.4;
+}
+
+.result-empty__action {
+  margin-top: 12px;
 }
 
 .avatar {
@@ -559,6 +654,11 @@ body {
   .app-header {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
+  }
+
+  .quick-start {
+    grid-template-columns: minmax(0, 0.92fr) minmax(300px, 1.08fr);
+    align-items: center;
   }
 
   .skill-form__grid,
