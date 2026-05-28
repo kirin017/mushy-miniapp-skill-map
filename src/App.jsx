@@ -14,13 +14,15 @@ import {
   saveMemberSkill,
   updateMemberSkillStatus,
 } from './lib/skill-map-api.js';
+import { isSkillMapMockMode } from './lib/skill-map-mock.js';
 import { useSkillMapData } from './lib/useSkillMapData.js';
 import { displayNameForMember, rankSkillMatches } from './lib/skill-map-utils.js';
 import './App.css';
 
 export default function App() {
-  const { error: contextError } = tryGetContext();
-  if (contextError) {
+  const mockMode = typeof window !== 'undefined' && isSkillMapMockMode(window.location.href, import.meta.env.DEV);
+  const { error: contextError } = mockMode ? { error: null } : tryGetContext();
+  if (!mockMode && contextError) {
     return (
       <div className="mushy-page skill-map-page">
         <section className="mushy-card error-card">
@@ -35,7 +37,7 @@ export default function App() {
 
 function SkillMapApp() {
   const dialog = useDialog();
-  const { activeScope, ctx, ctxError, dataset, error, index, loading, refresh } = useSkillMapData();
+  const { activeScope, ctx, ctxError, dataset, error, index, loading, mockMode, mockStore, refresh } = useSkillMapData();
   const [query, setQuery] = useState('');
   const [groupId, setGroupId] = useState('all');
   const [selectedSkillId, setSelectedSkillId] = useState(null);
@@ -91,25 +93,45 @@ function SkillMapApp() {
     }
 
     await runMutation(async () => {
-      const skill = await findOrCreateSkill({
+      const skill = mockMode ? mockStore.findOrCreateSkill({
+        workspaceId: activeScope.workspaceId,
+        groupId: nextGroupId,
+        name,
+        createdBy: ctx.userId,
+      }) : await findOrCreateSkill({
         workspaceId: activeScope.workspaceId,
         groupId: nextGroupId,
         name,
         createdBy: ctx.userId,
       });
-      await saveMemberSkill({
-        workspaceId: activeScope.workspaceId,
-        userId: ctx.userId,
-        skillId: skill.id,
-        status,
-      });
+
+      if (mockMode) {
+        mockStore.addMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status,
+        });
+      } else {
+        await saveMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status,
+        });
+      }
+
       setSelectedSkillId(skill.id);
     }, 'Không thêm được skill');
   }
 
   async function changeStatus(row, status) {
     await runMutation(
-      () => updateMemberSkillStatus({ id: row.id, workspaceId: activeScope.workspaceId, status }),
+      () => (mockMode ? mockStore.updateMemberSkillStatus({
+        id: row.id,
+        workspaceId: activeScope.workspaceId,
+        status,
+      }) : updateMemberSkillStatus({ id: row.id, workspaceId: activeScope.workspaceId, status })),
       'Không cập nhật được skill',
     );
   }
@@ -122,25 +144,33 @@ function SkillMapApp() {
     });
     if (!ok) return;
     await runMutation(
-      () => deleteMemberSkill({ id: row.id, workspaceId: activeScope.workspaceId }),
+      () => (mockMode
+        ? mockStore.deleteMemberSkill({ id: row.id, workspaceId: activeScope.workspaceId })
+        : deleteMemberSkill({ id: row.id, workspaceId: activeScope.workspaceId })),
       'Không xóa được skill',
     );
   }
 
   async function endorse(row) {
     await runMutation(
-      () => endorseMemberSkill({
+      () => (mockMode ? mockStore.endorseMemberSkill({
         workspaceId: activeScope.workspaceId,
         memberSkill: row,
         currentUserRole,
-      }),
+      }) : endorseMemberSkill({
+        workspaceId: activeScope.workspaceId,
+        memberSkill: row,
+        currentUserRole,
+      })),
       'Không endorse được skill',
     );
   }
 
   async function removeEndorsementRow(row) {
     await runMutation(
-      () => removeEndorsement({ id: row.id, workspaceId: activeScope.workspaceId }),
+      () => (mockMode
+        ? mockStore.removeEndorsement({ id: row.id, workspaceId: activeScope.workspaceId })
+        : removeEndorsement({ id: row.id, workspaceId: activeScope.workspaceId })),
       'Không gỡ được endorsement',
     );
   }
@@ -161,7 +191,13 @@ function SkillMapApp() {
           <h1>Ai mạnh mảng nào?</h1>
           <p>Tìm người support đúng kỹ năng trong workspace.</p>
         </div>
-        <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
+        {mockMode ? (
+          <span className="mushy-btn mushy-btn--ghost" style={{ pointerEvents: 'none' }}>
+            Mock Team
+          </span>
+        ) : (
+          <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
+        )}
       </header>
 
       {error && (
@@ -275,7 +311,7 @@ function SkillMapApp() {
         />
       )}
 
-      <ShareManageModal open={shareOpen} onClose={() => setShareOpen(false)} />
+      {!mockMode && <ShareManageModal open={shareOpen} onClose={() => setShareOpen(false)} />}
     </div>
   );
 }

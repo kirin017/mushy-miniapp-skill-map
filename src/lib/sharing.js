@@ -485,9 +485,10 @@ export async function unsetWorkspaceDefaultScope({ workspaceId } = {}) {
  *
  * Gọi 1 lần ở top của App.jsx (sau khi getContext() OK).
  */
-export function useDefaultScopeInitializer() {
+export function useDefaultScopeInitializer({ disabled = false } = {}) {
   const initialized = React.useRef(false);
   useEffect(() => {
+    if (disabled) return;
     if (initialized.current) return;
     initialized.current = true;
     // User đã từng switch tay → tôn trọng, không override
@@ -516,7 +517,7 @@ export function useDefaultScopeInitializer() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [disabled]);
 }
 
 // ╔════════════════════════════════════════════════════════════════╗
