@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { tryGetContext } from '../src/lib/context.js';
 import {
+  createSkillMapMockStore,
+  isSkillMapMockMode,
+  MOCK_CONTEXT,
+} from '../src/lib/skill-map-mock.js';
+import {
   buildSkillMapIndex,
   endorsementSourceTypeForRole,
   groupMemberSkills,
@@ -85,4 +90,46 @@ test('tryGetContext returns context when getter succeeds', () => {
 
   assert.equal(result.ctx, ctx);
   assert.equal(result.error, null);
+});
+
+test('isSkillMapMockMode only enables query flag during dev', () => {
+  const url = 'http://127.0.0.1:5173/?mock=1';
+
+  assert.equal(isSkillMapMockMode(url, true), true);
+  assert.equal(isSkillMapMockMode(url, false), false);
+  assert.equal(isSkillMapMockMode('http://127.0.0.1:5173/', true), false);
+});
+
+test('createSkillMapMockStore mutates current user member skills in memory', () => {
+  const store = createSkillMapMockStore();
+  const initial = store.getDataset();
+  const currentUserRows = initial.memberSkills.filter((row) => row.user_id === MOCK_CONTEXT.userId);
+  assert.ok(currentUserRows.length > 0);
+
+  const skill = store.findOrCreateSkill({
+    workspaceId: MOCK_CONTEXT.workspaceId,
+    groupId: initial.groups[0].id,
+    name: 'React Query',
+    createdBy: MOCK_CONTEXT.userId,
+  });
+  const row = store.addMemberSkill({
+    workspaceId: MOCK_CONTEXT.workspaceId,
+    userId: MOCK_CONTEXT.userId,
+    skillId: skill.id,
+    status: 'learning',
+  });
+
+  assert.equal(row.skill_id, skill.id);
+  assert.equal(row.status, 'learning');
+
+  const updated = store.updateMemberSkillStatus({
+    id: row.id,
+    workspaceId: MOCK_CONTEXT.workspaceId,
+    status: 'usable',
+  });
+  assert.equal(updated.status, 'usable');
+
+  store.deleteMemberSkill({ id: row.id, workspaceId: MOCK_CONTEXT.workspaceId });
+  const afterDelete = store.getDataset();
+  assert.equal(afterDelete.memberSkills.some((item) => item.id === row.id), false);
 });
