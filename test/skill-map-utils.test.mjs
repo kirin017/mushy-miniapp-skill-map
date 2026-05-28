@@ -10,6 +10,7 @@ import {
   buildSkillMapIndex,
   endorsementSourceTypeForRole,
   getOnboardingSkillSuggestions,
+  getProfileProgress,
   groupMemberSkills,
   normalizeSkillName,
   rankSkillMatches,
@@ -183,4 +184,93 @@ test('getOnboardingSkillSuggestions excludes current user skills and follows gro
   });
 
   assert.deepEqual(suggestions.map((skill) => skill.id), ['s3', 's2']);
+});
+
+function profileProgressItem(progress, id) {
+  return progress.items.find((item) => item.id === id);
+}
+
+test('getProfileProgress returns empty progress and suggestions for a new profile', () => {
+  const groups = [
+    { id: 'g1', name: 'Coding', sort_order: 10 },
+    { id: 'g2', name: 'Testing', sort_order: 20 },
+  ];
+  const skills = [
+    { id: 's2', name: 'Test cases', group_id: 'g2' },
+    { id: 's1', name: 'React', group_id: 'g1' },
+    { id: 's3', name: 'API integration', group_id: 'g1' },
+  ];
+
+  const progress = getProfileProgress({
+    groups,
+    skills,
+    memberSkills: [],
+    endorsements: [],
+    userId: 'u1',
+    suggestionLimit: 2,
+  });
+
+  assert.equal(progress.total, 5);
+  assert.equal(progress.completed, 0);
+  assert.equal(progress.complete, false);
+  assert.deepEqual(progress.items.map((item) => item.done), [false, false, false, false, false]);
+  assert.deepEqual(progress.suggestions.map((skill) => skill.id), ['s1', 's3']);
+});
+
+test('getProfileProgress marks skill count, group coverage, usable, learning, and received endorsement items', () => {
+  const groups = [
+    { id: 'g1', name: 'Coding', sort_order: 10 },
+    { id: 'g2', name: 'Testing', sort_order: 20 },
+    { id: 'g3', name: 'Git', sort_order: 30 },
+  ];
+  const skills = [
+    { id: 's1', name: 'React', group_id: 'g1' },
+    { id: 's2', name: 'Test cases', group_id: 'g2' },
+    { id: 's3', name: 'Manual testing', group_id: 'g2' },
+    { id: 's4', name: 'Pull requests', group_id: 'g3' },
+  ];
+  const memberSkills = [
+    { id: 'ms1', user_id: 'u1', skill_id: 's1', status: 'usable' },
+    { id: 'ms2', user_id: 'u1', skill_id: 's2', status: 'learning' },
+    { id: 'ms3', user_id: 'u1', skill_id: 's3', status: 'usable' },
+    { id: 'ms4', user_id: 'u2', skill_id: 's4', status: 'usable' },
+  ];
+  const endorsements = [
+    { id: 'e1', member_skill_id: 'ms1', endorser_user_id: 'u2' },
+  ];
+
+  const progress = getProfileProgress({
+    groups,
+    skills,
+    memberSkills,
+    endorsements,
+    userId: 'u1',
+    suggestionLimit: 4,
+  });
+
+  assert.equal(progress.completed, 5);
+  assert.equal(progress.complete, true);
+  assert.equal(profileProgressItem(progress, 'skill-count').done, true);
+  assert.equal(profileProgressItem(progress, 'group-coverage').done, true);
+  assert.equal(profileProgressItem(progress, 'usable-skill').done, true);
+  assert.equal(profileProgressItem(progress, 'learning-skill').done, true);
+  assert.equal(profileProgressItem(progress, 'endorsement').done, true);
+  assert.deepEqual(progress.suggestions.map((skill) => skill.id), ['s4']);
+});
+
+test('getProfileProgress treats a sent endorsement as endorsement progress', () => {
+  const progress = getProfileProgress({
+    groups: [{ id: 'g1', name: 'Coding', sort_order: 10 }],
+    skills: [{ id: 's1', name: 'React', group_id: 'g1' }],
+    memberSkills: [
+      { id: 'ms1', user_id: 'u1', skill_id: 's1', status: 'usable' },
+      { id: 'ms2', user_id: 'u2', skill_id: 's1', status: 'usable' },
+    ],
+    endorsements: [
+      { id: 'e1', member_skill_id: 'ms2', endorser_user_id: 'u1' },
+    ],
+    userId: 'u1',
+  });
+
+  assert.equal(profileProgressItem(progress, 'endorsement').done, true);
 });
