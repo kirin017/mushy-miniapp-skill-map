@@ -158,6 +158,18 @@ for insert with check (
   public.can_access_app_data(workspace_id, 'skill-map')
   and endorser_user_id = auth.uid()
   and member_user_id <> auth.uid()
+  and (
+    source_type = 'peer'
+    or (
+      source_type = 'admin'
+      and exists (
+        select 1 from public.workspace_members wm
+        where wm.workspace_id = skill_endorsements.workspace_id
+          and wm.user_id = auth.uid()
+          and wm.role in ('owner', 'admin')
+      )
+    )
+  )
 );
 create policy "skill_endorsements_delete" on app_skill_map.skill_endorsements
 for delete using (

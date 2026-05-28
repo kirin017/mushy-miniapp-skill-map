@@ -1,123 +1,324 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { getContext, isInShell } from './lib/context.js';
-import { callNative } from './lib/bridge.js';
+import React, { useMemo, useState } from 'react';
+import MemberDetailModal from './components/MemberDetailModal.jsx';
+import ScopeSwitcher from './components/ScopeSwitcher.jsx';
+import ShareManageModal from './components/ShareManageModal.jsx';
+import SkillStatusBadge from './components/SkillStatusBadge.jsx';
+import SkillTypeahead from './components/SkillTypeahead.jsx';
+import { useDialog } from './components/Dialog.jsx';
+import {
+  deleteMemberSkill,
+  endorseMemberSkill,
+  findOrCreateSkill,
+  removeEndorsement,
+  saveMemberSkill,
+  updateMemberSkillStatus,
+} from './lib/skill-map-api.js';
+import { useSkillMapData } from './lib/useSkillMapData.js';
+import { displayNameForMember, rankSkillMatches } from './lib/skill-map-utils.js';
 import './App.css';
 
-// 4 nút bridge — icon emoji là OK ở demo (nội dung minh hoạ),
-// production app nên dùng SVG icon set (lucide-react, heroicons...).
-const BRIDGE_TESTS = [
-  { type: 'GET_LOCATION',     label: 'Vị trí',     icon: '📍' },
-  { type: 'OPEN_CAMERA',      label: 'Camera',     icon: '📷', payload: { quality: 0.8 } },
-  { type: 'PICK_FILE',        label: 'Chọn file',  icon: '📎' },
-  { type: 'PUSH_NOTIFICATION', label: 'Thông báo', icon: '🔔', payload: { title: 'Mushy', body: 'Xin chào từ mini-app 🍄' } },
-];
-
 export default function App() {
-  const [ctx, setCtx] = useState(null);
-  const [ctxError, setCtxError] = useState(null);
-  const [logs, setLogs] = useState([]);
-  const [pending, setPending] = useState(null);
+  const dialog = useDialog();
+  const { activeScope, ctx, ctxError, dataset, error, index, loading, refresh } = useSkillMapData();
+  const [query, setQuery] = useState('');
+  const [groupId, setGroupId] = useState('all');
+  const [selectedSkillId, setSelectedSkillId] = useState(null);
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    try { setCtx(getContext()); }
-    catch (e) { setCtxError(e.message); }
-  }, []);
+  const isCurrentUserAdmin = ['owner', 'admin'].includes(ctx?.role);
+  const mySkills = ctx ? index.memberSkillsByUser.get(ctx.userId) || [] : [];
+  const selectedMember = dataset.members.find((member) => member.user_id === selectedMemberId);
+  const selectedMemberSkills = selectedMemberId ? index.memberSkillsByUser.get(selectedMemberId) || [] : [];
 
-  const inShell = useMemo(() => isInShell(), []);
+  const visibleSkills = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return dataset.skills
+      .filter((skill) => groupId === 'all' || skill.group_id === groupId)
+      .filter((skill) => !normalizedQuery || skill.name.toLowerCase().includes(normalizedQuery))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  }, [dataset.skills, groupId, query]);
 
-  const log = (label, data, ok = true) =>
-    setLogs((l) => [{ t: nowHHmmss(), label, data, ok }, ...l].slice(0, 20));
+  const activeSkill = visibleSkills.find((skill) => skill.id === selectedSkillId) || visibleSkills[0] || null;
 
-  const test = (type, payload) => async () => {
-    if (pending) return;
-    setPending(type);
+  const rankedResults = useMemo(() => {
+    if (!activeSkill) return [];
+    return rankSkillMatches({
+      members: dataset.members,
+      skills: dataset.skills,
+      memberSkills: dataset.memberSkills,
+      endorsements: dataset.endorsements,
+      skillId: activeSkill.id,
+    });
+  }, [activeSkill, dataset]);
+
+  async function runMutation(action, errorTitle) {
+    setSaving(true);
     try {
-      const data = await callNative(type, payload);
-      log(type, data, true);
+      await action();
+      refresh();
     } catch (e) {
-      log(type, e.message || String(e), false);
+      await dialog.error(errorTitle, e.message || String(e));
     } finally {
-      setPending(null);
+      setSaving(false);
     }
-  };
+  }
+
+  async function addSkill({ groupId: nextGroupId, name, status }) {
+    await runMutation(async () => {
+      const skill = await findOrCreateSkill({
+        workspaceId: activeScope.workspaceId,
+        groupId: nextGroupId,
+        name,
+        createdBy: ctx.userId,
+      });
+      await saveMemberSkill({
+        workspaceId: activeScope.workspaceId,
+        userId: ctx.userId,
+        skillId: skill.id,
+        status,
+      });
+      setSelectedSkillId(skill.id);
+    }, 'Không thêm được skill');
+  }
+
+  async function changeStatus(row, status) {
+    await runMutation(
+      () => updateMemberSkillStatus({ id: row.id, workspaceId: activeScope.workspaceId, status }),
+      'Không cập nhật được skill',
+    );
+  }
+
+  async function deleteSkill(row) {
+    const ok = await dialog.confirm('Xóa skill khỏi profile?', row.skill?.name || 'Skill này', {
+      danger: true,
+      confirmLabel: 'Xóa',
+      cancelLabel: 'Hủy',
+    });
+    if (!ok) return;
+    await runMutation(
+      () => deleteMemberSkill({ id: row.id, workspaceId: activeScope.workspaceId }),
+      'Không xóa được skill',
+    );
+  }
+
+  async function endorse(row) {
+    await runMutation(
+      () => endorseMemberSkill({
+        workspaceId: activeScope.workspaceId,
+        memberSkill: row,
+        currentUserRole: activeScope.workspaceId === ctx.workspaceId ? ctx.role : 'member',
+      }),
+      'Không endorse được skill',
+    );
+  }
+
+  async function removeEndorsementRow(row) {
+    await runMutation(
+      () => removeEndorsement({ id: row.id, workspaceId: activeScope.workspaceId }),
+      'Không gỡ được endorsement',
+    );
+  }
+
+  if (ctxError) {
+    return (
+      <div className="mushy-page">
+        <section className="mushy-card error-card">{ctxError.message}</section>
+      </div>
+    );
+  }
 
   return (
-    <div className="mushy-page">
-      <header className="hero">
-        <img src="/mushy.png" alt="Mushy mascot" className="hero-mascot" />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 className="hero-title">Mushy Demo</h1>
-          <p className="hero-sub">Trang thử nghiệm bridge & ngữ cảnh</p>
+    <div className="mushy-page skill-map-page">
+      <header className="app-header">
+        <div>
+          <p className="eyebrow">Team Skill Map</p>
+          <h1>Ai mạnh mảng nào?</h1>
+          <p>Tìm người support đúng kỹ năng trong workspace.</p>
         </div>
-        <span className={`mushy-status ${inShell ? 'mushy-status--ok' : 'mushy-status--warn'}`}>
-          <span className="mushy-status-dot" />
-          {inShell ? 'Trong Shell' : 'Trình duyệt (mock)'}
-        </span>
+        <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
       </header>
 
-      <section className="mushy-card" style={{ marginTop: 14 }}>
-        <h2 className="mushy-section-title">🧪 Thử nghiệm Bridge</h2>
-        <p className="mushy-section-sub">
-          Bấm để gọi native API qua <code>callNative</code>. Trong Shell sẽ chạy thật, ngoài browser dùng mock.
-        </p>
-        <div className="btn-grid">
-          {BRIDGE_TESTS.map((b) => (
-            <button
-              key={b.type}
-              className="mushy-btn mushy-btn--primary btn-tile"
-              disabled={!!pending}
-              onClick={test(b.type, b.payload)}
-            >
-              {pending === b.type ? (
-                <span className="mushy-spinner" />
-              ) : (
-                <span className="btn-tile-icon">{b.icon}</span>
-              )}
-              <span>{b.label}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      {error && (
+        <section className="mushy-card error-card">
+          Không tải được dữ liệu: {error.message}
+        </section>
+      )}
 
-      <section className="mushy-card">
-        <h2 className="mushy-section-title">📋 Nhật ký</h2>
-        {logs.length === 0 ? (
-          <p className="log-empty">Chưa có log. Bấm thử 1 nút ở trên nhé!</p>
-        ) : (
-          <div>
-            {logs.map((l, i) => (
-              <div key={i} className="log-item">
-                <span className="log-time">{l.t}</span>
-                <div className="log-body">
-                  <div className={`log-label ${l.ok ? 'ok' : 'err'}`}>
-                    <span className="dot" />
-                    {l.label} {l.ok ? '· OK' : '· Lỗi'}
-                  </div>
-                  <pre className="log-data">
-                    {typeof l.data === 'string' ? l.data : JSON.stringify(l.data, null, 2)}
-                  </pre>
+      <main className="main-grid">
+        <section className="mushy-card explore-panel">
+          <div className="section-head">
+            <div>
+              <h2>Explore</h2>
+              <p>Tìm skill, xem ai phù hợp nhất.</p>
+            </div>
+            {loading && <span className="mushy-spinner" />}
+          </div>
+
+          <div className="filters">
+            <input
+              className="mushy-input"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search skill..."
+            />
+            <div className="chip-row">
+              <button className={groupId === 'all' ? 'chip chip--active' : 'chip'} type="button" onClick={() => setGroupId('all')}>
+                Tất cả
+              </button>
+              {dataset.groups.map((group) => (
+                <button
+                  key={group.id}
+                  className={groupId === group.id ? 'chip chip--active' : 'chip'}
+                  type="button"
+                  onClick={() => setGroupId(group.id)}
+                >
+                  {group.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <SkillResults
+            activeSkill={activeSkill}
+            index={index}
+            loading={loading}
+            rankedResults={rankedResults}
+            selectedSkillId={selectedSkillId}
+            skills={visibleSkills}
+            onOpenMember={setSelectedMemberId}
+            onPickSkill={setSelectedSkillId}
+          />
+        </section>
+
+        <section className="mushy-card my-skills-panel">
+          <div className="section-head">
+            <div>
+              <h2>My Skills</h2>
+              <p>Cập nhật skill bạn có thể chia sẻ với team.</p>
+            </div>
+          </div>
+
+          <SkillTypeahead
+            groups={dataset.groups}
+            skills={dataset.skills}
+            disabled={saving || loading || !ctx}
+            onSubmit={addSkill}
+          />
+
+          <div className="my-skill-list">
+            {mySkills.length === 0 && <p className="empty-copy">Bạn chưa khai báo skill nào.</p>}
+            {mySkills.map((row) => (
+              <div className="my-skill-row" key={row.id}>
+                <div>
+                  <strong>{row.skill?.name}</strong>
+                  <span>{row.skill?.group?.name || 'Khác'}</span>
+                </div>
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    className="ghost-link"
+                    onClick={() => changeStatus(row, row.status === 'usable' ? 'learning' : 'usable')}
+                  >
+                    <SkillStatusBadge status={row.status} />
+                  </button>
+                  <button type="button" className="text-danger" onClick={() => deleteSkill(row)}>Xóa</button>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      </main>
 
-      <section className="mushy-card">
-        <h2 className="mushy-section-title">🔑 Ngữ cảnh ứng dụng</h2>
-        {ctxError && <p className="log-empty" style={{ color: 'var(--danger)' }}>{ctxError}</p>}
-        {ctx && <pre className="mushy-code">{JSON.stringify(ctx, null, 2)}</pre>}
-      </section>
+      {selectedMember && (
+        <MemberDetailModal
+          currentUserId={ctx?.userId}
+          isCurrentUserAdmin={isCurrentUserAdmin}
+          member={selectedMember}
+          memberSkills={selectedMemberSkills}
+          onClose={() => setSelectedMemberId(null)}
+          onEndorse={endorse}
+          onRemoveEndorsement={removeEndorsementRow}
+        />
+      )}
 
-      <footer className="footer">
-        Mushy mini-app demo · Made with <span className="heart">♥</span>
-      </footer>
+      <ShareManageModal open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }
 
-function nowHHmmss() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+function SkillResults({
+  activeSkill,
+  index,
+  loading,
+  onOpenMember,
+  onPickSkill,
+  rankedResults,
+  skills,
+}) {
+  if (loading) return <p className="empty-copy">Đang tải skill map...</p>;
+  if (skills.length === 0) return <p className="empty-copy">Không tìm thấy skill phù hợp.</p>;
+
+  return (
+    <div className="results">
+      <div className="skill-picker">
+        {skills.slice(0, 12).map((skill) => (
+          <button
+            key={skill.id}
+            className={activeSkill?.id === skill.id ? 'skill-pill skill-pill--active' : 'skill-pill'}
+            type="button"
+            onClick={() => onPickSkill(skill.id)}
+          >
+            {skill.name}
+          </button>
+        ))}
+      </div>
+
+      {activeSkill && (
+        <div className="target-skill">
+          <span>Đang xem</span>
+          <strong>{activeSkill.name}</strong>
+        </div>
+      )}
+
+      {rankedResults.length === 0 ? (
+        <div className="result-empty">
+          <h3>{activeSkill?.name}</h3>
+          <p>Chưa có ai khai báo skill này.</p>
+        </div>
+      ) : rankedResults.map((result) => {
+        const related = index.memberSkillsByUser.get(result.member.user_id) || [];
+        return (
+          <button
+            className="member-card"
+            key={result.memberSkill.id}
+            type="button"
+            onClick={() => onOpenMember(result.member.user_id)}
+          >
+            <div className="avatar">{initials(displayNameForMember(result.member))}</div>
+            <div className="member-card__body">
+              <div className="member-card__top">
+                <strong>{displayNameForMember(result.member)}</strong>
+                <SkillStatusBadge status={result.memberSkill.status} />
+              </div>
+              <p>{result.member.role || 'member'}{result.member.work_phone ? ` · ${result.member.work_phone}` : ''}</p>
+              <div className="related-skills">
+                {related.slice(0, 3).map((row) => <span key={row.id}>{row.skill?.name}</span>)}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function initials(name) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(-2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || '?';
 }
