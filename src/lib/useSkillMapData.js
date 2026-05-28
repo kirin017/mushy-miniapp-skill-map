@@ -44,7 +44,9 @@ export function useSkillMapData() {
 
     (async () => {
       try {
-        await ensureSeedTaxonomy(activeScope.workspaceId);
+        if (activeScope.scopeKind === 'owner_member') {
+          await ensureSeedTaxonomy(activeScope.workspaceId);
+        }
         const next = await loadSkillMapDataset(activeScope.workspaceId);
         if (!cancelled) setDataset(next);
       } catch (e) {
@@ -57,7 +59,7 @@ export function useSkillMapData() {
     return () => {
       cancelled = true;
     };
-  }, [ctx, activeScope.workspaceId, version]);
+  }, [ctx, activeScope.scopeKind, activeScope.workspaceId, version]);
 
   const index = useMemo(() => buildSkillMapIndex(dataset), [dataset]);
 

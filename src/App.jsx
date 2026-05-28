@@ -27,8 +27,11 @@ export default function App() {
   const [shareOpen, setShareOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const isCurrentUserAdmin = ['owner', 'admin'].includes(ctx?.role);
-  const mySkills = ctx ? index.memberSkillsByUser.get(ctx.userId) || [] : [];
+  const currentScopeMember = ctx ? dataset.members.find((member) => member.user_id === ctx.userId) : null;
+  const currentUserRole = currentScopeMember?.role || ctx?.role || 'member';
+  const canEditOwnProfile = Boolean(currentScopeMember);
+  const isCurrentUserAdmin = ['owner', 'admin'].includes(currentUserRole);
+  const mySkills = ctx && canEditOwnProfile ? index.memberSkillsByUser.get(ctx.userId) || [] : [];
   const selectedMember = dataset.members.find((member) => member.user_id === selectedMemberId);
   const selectedMemberSkills = selectedMemberId ? index.memberSkillsByUser.get(selectedMemberId) || [] : [];
 
@@ -66,6 +69,11 @@ export default function App() {
   }
 
   async function addSkill({ groupId: nextGroupId, name, status }) {
+    if (!canEditOwnProfile) {
+      await dialog.error('Không thể cập nhật profile', 'Bạn chỉ sửa skill profile trong workspace mà bạn là member trực tiếp.');
+      return;
+    }
+
     await runMutation(async () => {
       const skill = await findOrCreateSkill({
         workspaceId: activeScope.workspaceId,
@@ -108,7 +116,7 @@ export default function App() {
       () => endorseMemberSkill({
         workspaceId: activeScope.workspaceId,
         memberSkill: row,
-        currentUserRole: activeScope.workspaceId === ctx.workspaceId ? ctx.role : 'member',
+        currentUserRole,
       }),
       'Không endorse được skill',
     );
@@ -200,34 +208,42 @@ export default function App() {
             </div>
           </div>
 
-          <SkillTypeahead
-            groups={dataset.groups}
-            skills={dataset.skills}
-            disabled={saving || loading || !ctx}
-            onSubmit={addSkill}
-          />
+          {!canEditOwnProfile && !loading ? (
+            <div className="profile-readonly">
+              Bạn đang xem scope được chia sẻ hoặc workspace mà bạn không phải member trực tiếp. Skill profile chỉ cập nhật trong workspace của bạn.
+            </div>
+          ) : (
+            <>
+              <SkillTypeahead
+                groups={dataset.groups}
+                skills={dataset.skills}
+                disabled={saving || loading || !ctx}
+                onSubmit={addSkill}
+              />
 
-          <div className="my-skill-list">
-            {mySkills.length === 0 && <p className="empty-copy">Bạn chưa khai báo skill nào.</p>}
-            {mySkills.map((row) => (
-              <div className="my-skill-row" key={row.id}>
-                <div>
-                  <strong>{row.skill?.name}</strong>
-                  <span>{row.skill?.group?.name || 'Khác'}</span>
-                </div>
-                <div className="row-actions">
-                  <button
-                    type="button"
-                    className="ghost-link"
-                    onClick={() => changeStatus(row, row.status === 'usable' ? 'learning' : 'usable')}
-                  >
-                    <SkillStatusBadge status={row.status} />
-                  </button>
-                  <button type="button" className="text-danger" onClick={() => deleteSkill(row)}>Xóa</button>
-                </div>
+              <div className="my-skill-list">
+                {mySkills.length === 0 && <p className="empty-copy">Bạn chưa khai báo skill nào.</p>}
+                {mySkills.map((row) => (
+                  <div className="my-skill-row" key={row.id}>
+                    <div>
+                      <strong>{row.skill?.name}</strong>
+                      <span>{row.skill?.group?.name || 'Khác'}</span>
+                    </div>
+                    <div className="row-actions">
+                      <button
+                        type="button"
+                        className="ghost-link"
+                        onClick={() => changeStatus(row, row.status === 'usable' ? 'learning' : 'usable')}
+                      >
+                        <SkillStatusBadge status={row.status} />
+                      </button>
+                      <button type="button" className="text-danger" onClick={() => deleteSkill(row)}>Xóa</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </section>
       </main>
 

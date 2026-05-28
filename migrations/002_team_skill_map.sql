@@ -102,12 +102,37 @@ drop policy if exists "skill_groups_delete" on app_skill_map.skill_groups;
 create policy "skill_groups_select" on app_skill_map.skill_groups
 for select using (public.can_access_app_data(workspace_id, 'skill-map'));
 create policy "skill_groups_insert" on app_skill_map.skill_groups
-for insert with check (public.can_access_app_data(workspace_id, 'skill-map'));
+for insert with check (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and public.is_owner_workspace_member(workspace_id)
+);
 create policy "skill_groups_update" on app_skill_map.skill_groups
-for update using (public.can_access_app_data(workspace_id, 'skill-map'))
-with check (public.can_access_app_data(workspace_id, 'skill-map'));
+for update using (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = skill_groups.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
+) with check (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = skill_groups.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
+);
 create policy "skill_groups_delete" on app_skill_map.skill_groups
-for delete using (public.is_owner_workspace_member(workspace_id));
+for delete using (
+  exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = skill_groups.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
+);
 
 drop policy if exists "skills_select" on app_skill_map.skills;
 drop policy if exists "skills_insert" on app_skill_map.skills;
@@ -116,12 +141,37 @@ drop policy if exists "skills_delete" on app_skill_map.skills;
 create policy "skills_select" on app_skill_map.skills
 for select using (public.can_access_app_data(workspace_id, 'skill-map'));
 create policy "skills_insert" on app_skill_map.skills
-for insert with check (public.can_access_app_data(workspace_id, 'skill-map'));
+for insert with check (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and public.is_owner_workspace_member(workspace_id)
+);
 create policy "skills_update" on app_skill_map.skills
-for update using (public.can_access_app_data(workspace_id, 'skill-map'))
-with check (public.can_access_app_data(workspace_id, 'skill-map'));
+for update using (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = skills.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
+) with check (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = skills.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
+);
 create policy "skills_delete" on app_skill_map.skills
-for delete using (public.is_owner_workspace_member(workspace_id));
+for delete using (
+  exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = skills.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
+);
 
 drop policy if exists "member_skills_select" on app_skill_map.member_skills;
 drop policy if exists "member_skills_insert" on app_skill_map.member_skills;
@@ -132,19 +182,23 @@ for select using (public.can_access_app_data(workspace_id, 'skill-map'));
 create policy "member_skills_insert" on app_skill_map.member_skills
 for insert with check (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and public.is_owner_workspace_member(workspace_id)
   and user_id = auth.uid()
 );
 create policy "member_skills_update" on app_skill_map.member_skills
 for update using (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and public.is_owner_workspace_member(workspace_id)
   and user_id = auth.uid()
 ) with check (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and public.is_owner_workspace_member(workspace_id)
   and user_id = auth.uid()
 );
 create policy "member_skills_delete" on app_skill_map.member_skills
 for delete using (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and public.is_owner_workspace_member(workspace_id)
   and user_id = auth.uid()
 );
 
@@ -156,8 +210,17 @@ for select using (public.can_access_app_data(workspace_id, 'skill-map'));
 create policy "skill_endorsements_insert" on app_skill_map.skill_endorsements
 for insert with check (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and public.is_owner_workspace_member(workspace_id)
   and endorser_user_id = auth.uid()
   and member_user_id <> auth.uid()
+  and exists (
+    select 1 from app_skill_map.member_skills ms
+    where ms.id = skill_endorsements.member_skill_id
+      and ms.workspace_id = skill_endorsements.workspace_id
+      and ms.user_id = skill_endorsements.member_user_id
+      and ms.skill_id = skill_endorsements.skill_id
+      and ms.user_id <> auth.uid()
+  )
   and (
     source_type = 'peer'
     or (
@@ -175,7 +238,10 @@ create policy "skill_endorsements_delete" on app_skill_map.skill_endorsements
 for delete using (
   public.can_access_app_data(workspace_id, 'skill-map')
   and (
-    endorser_user_id = auth.uid()
+    (
+      public.is_owner_workspace_member(workspace_id)
+      and endorser_user_id = auth.uid()
+    )
     or exists (
       select 1 from public.workspace_members wm
       where wm.workspace_id = skill_endorsements.workspace_id

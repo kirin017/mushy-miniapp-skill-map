@@ -361,6 +361,9 @@ body {
 }
 
 .skill-suggestions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 30px;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -374,6 +377,24 @@ body {
 
 .skill-suggestions button:hover {
   border-color: color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
+.skill-suggestion__group {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.duplicate-hint,
+.profile-readonly {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--warn) 24%, transparent);
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #7c4a03;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 10px 12px;
 }
 
 .my-skill-list {

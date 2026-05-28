@@ -23,6 +23,10 @@ export default function SkillTypeahead({ groups = [], skills = [], disabled = fa
     () => groups.map((group) => ({ value: group.id, label: group.name })),
     [groups]
   );
+  const groupsById = useMemo(
+    () => new Map(groups.map((group) => [group.id, group])),
+    [groups]
+  );
 
   const normalizedName = normalizeSkillName(name);
 
@@ -30,15 +34,19 @@ export default function SkillTypeahead({ groups = [], skills = [], disabled = fa
     if (!normalizedName) return [];
 
     return skills
-      .filter((skill) => skill.group_id === groupId)
       .filter((skill) => normalizeSkillName(skill.normalized_name || skill.name).includes(normalizedName))
-      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+      .sort((a, b) => {
+        const aSelected = a.group_id === groupId ? 0 : 1;
+        const bSelected = b.group_id === groupId ? 0 : 1;
+        if (aSelected !== bSelected) return aSelected - bSelected;
+        return a.name.localeCompare(b.name, 'vi');
+      })
       .slice(0, 6);
   }, [groupId, normalizedName, skills]);
 
-  const exactMatch = skills
-    .filter((skill) => skill.group_id === groupId)
-    .find((skill) => normalizeSkillName(skill.normalized_name || skill.name) === normalizedName);
+  const exactMatch = skills.find((skill) => normalizeSkillName(skill.normalized_name || skill.name) === normalizedName);
+  const exactMatchGroup = exactMatch ? groupsById.get(exactMatch.group_id) : null;
+  const duplicateInAnotherGroup = exactMatch && exactMatch.group_id !== groupId;
   const canSubmit = !disabled && Boolean(groupId) && Boolean(name.trim());
 
   async function submit(event) {
@@ -95,14 +103,21 @@ export default function SkillTypeahead({ groups = [], skills = [], disabled = fa
               onClick={() => setName(skill.name)}
               disabled={disabled}
             >
-              {skill.name}
+              <span>{skill.name}</span>
+              <span className="skill-suggestion__group">{groupsById.get(skill.group_id)?.name || 'Khác'}</span>
             </button>
           ))}
         </div>
       )}
 
+      {duplicateInAnotherGroup && (
+        <p className="duplicate-hint">
+          Skill này đã có trong nhóm {exactMatchGroup?.name || 'khác'}; app sẽ thêm skill đã có thay vì tạo bản trùng.
+        </p>
+      )}
+
       <button className="mushy-btn mushy-btn--primary mushy-btn--block" type="submit" disabled={!canSubmit}>
-        {exactMatch ? 'Thêm skill' : 'Tạo skill và thêm'}
+        {exactMatch ? 'Thêm skill đã có' : 'Tạo skill và thêm'}
       </button>
     </form>
   );
