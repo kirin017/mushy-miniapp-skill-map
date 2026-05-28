@@ -1,0 +1,9 @@
+{
+  "phase": "initial",
+  "agent_split": "Local only",
+  "reason": "The helper, App.jsx, and CSS changes are tightly coupled and small.",
+  "prior_scores": {},
+  "targeted_criteria": ["correctness", "completeness", "edge_cases", "craft"],
+  "hypothesis": "A quick-start panel plus action-oriented empty states will reduce first-use friction without altering data permissions.",
+  "what_not_to_retry": ["Do not add fake production users", "Do not change RLS or schema for this UX pass"]
+}

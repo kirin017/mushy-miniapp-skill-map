@@ -5,6 +5,7 @@ import ShareManageModal from './components/ShareManageModal.jsx';
 import SkillStatusBadge from './components/SkillStatusBadge.jsx';
 import SkillTypeahead from './components/SkillTypeahead.jsx';
 import { useDialog } from './components/Dialog.jsx';
+import { tryGetContext } from './lib/context.js';
 import {
   deleteMemberSkill,
   endorseMemberSkill,
@@ -13,13 +14,35 @@ import {
   saveMemberSkill,
   updateMemberSkillStatus,
 } from './lib/skill-map-api.js';
+import { isSkillMapMockMode } from './lib/skill-map-mock.js';
 import { useSkillMapData } from './lib/useSkillMapData.js';
-import { displayNameForMember, rankSkillMatches } from './lib/skill-map-utils.js';
+import {
+  displayNameForMember,
+  getOnboardingSkillSuggestions,
+  rankSkillMatches,
+  shouldShowSkillOnboarding,
+} from './lib/skill-map-utils.js';
 import './App.css';
 
 export default function App() {
+  const mockMode = typeof window !== 'undefined' && isSkillMapMockMode(window.location.href, import.meta.env.DEV);
+  const { error: contextError } = mockMode ? { error: null } : tryGetContext();
+  if (!mockMode && contextError) {
+    return (
+      <div className="mushy-page skill-map-page">
+        <section className="mushy-card error-card">
+          {contextError.message}
+        </section>
+      </div>
+    );
+  }
+
+  return <SkillMapApp />;
+}
+
+function SkillMapApp() {
   const dialog = useDialog();
-  const { activeScope, ctx, ctxError, dataset, error, index, loading, refresh } = useSkillMapData();
+  const { activeScope, ctx, ctxError, dataset, error, index, loading, mockMode, mockStore, refresh } = useSkillMapData();
   const [query, setQuery] = useState('');
   const [groupId, setGroupId] = useState('all');
   const [selectedSkillId, setSelectedSkillId] = useState(null);
@@ -34,6 +57,7 @@ export default function App() {
   const mySkills = ctx && canEditOwnProfile ? index.memberSkillsByUser.get(ctx.userId) || [] : [];
   const selectedMember = dataset.members.find((member) => member.user_id === selectedMemberId);
   const selectedMemberSkills = selectedMemberId ? index.memberSkillsByUser.get(selectedMemberId) || [] : [];
+  const showOnboarding = shouldShowSkillOnboarding({ canEditOwnProfile, loading, mySkills });
 
   const visibleSkills = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -44,6 +68,16 @@ export default function App() {
   }, [dataset.skills, groupId, query]);
 
   const activeSkill = visibleSkills.find((skill) => skill.id === selectedSkillId) || visibleSkills[0] || null;
+  const activeSkillAlreadyMine = activeSkill ? mySkills.some((row) => row.skill_id === activeSkill.id) : false;
+  const canAddActiveSkill = Boolean(canEditOwnProfile && activeSkill && !activeSkillAlreadyMine);
+
+  const onboardingSuggestions = useMemo(() => getOnboardingSkillSuggestions({
+    groups: dataset.groups,
+    skills: dataset.skills,
+    memberSkills: dataset.memberSkills,
+    userId: ctx?.userId,
+    limit: 6,
+  }), [ctx?.userId, dataset.groups, dataset.memberSkills, dataset.skills]);
 
   const rankedResults = useMemo(() => {
     if (!activeSkill) return [];
@@ -75,25 +109,68 @@ export default function App() {
     }
 
     await runMutation(async () => {
-      const skill = await findOrCreateSkill({
+      const skill = mockMode ? mockStore.findOrCreateSkill({
+        workspaceId: activeScope.workspaceId,
+        groupId: nextGroupId,
+        name,
+        createdBy: ctx.userId,
+      }) : await findOrCreateSkill({
         workspaceId: activeScope.workspaceId,
         groupId: nextGroupId,
         name,
         createdBy: ctx.userId,
       });
-      await saveMemberSkill({
-        workspaceId: activeScope.workspaceId,
-        userId: ctx.userId,
-        skillId: skill.id,
-        status,
-      });
+
+      if (mockMode) {
+        mockStore.addMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status,
+        });
+      } else {
+        await saveMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status,
+        });
+      }
+
+      setSelectedSkillId(skill.id);
+    }, 'Không thêm được skill');
+  }
+
+  async function quickAddSkill(skill) {
+    if (!canEditOwnProfile || !ctx || !skill) return;
+
+    await runMutation(async () => {
+      if (mockMode) {
+        mockStore.addMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status: 'usable',
+        });
+      } else {
+        await saveMemberSkill({
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          skillId: skill.id,
+          status: 'usable',
+        });
+      }
       setSelectedSkillId(skill.id);
     }, 'Không thêm được skill');
   }
 
   async function changeStatus(row, status) {
     await runMutation(
-      () => updateMemberSkillStatus({ id: row.id, workspaceId: activeScope.workspaceId, status }),
+      () => (mockMode ? mockStore.updateMemberSkillStatus({
+        id: row.id,
+        workspaceId: activeScope.workspaceId,
+        status,
+      }) : updateMemberSkillStatus({ id: row.id, workspaceId: activeScope.workspaceId, status })),
       'Không cập nhật được skill',
     );
   }
@@ -106,25 +183,33 @@ export default function App() {
     });
     if (!ok) return;
     await runMutation(
-      () => deleteMemberSkill({ id: row.id, workspaceId: activeScope.workspaceId }),
+      () => (mockMode
+        ? mockStore.deleteMemberSkill({ id: row.id, workspaceId: activeScope.workspaceId })
+        : deleteMemberSkill({ id: row.id, workspaceId: activeScope.workspaceId })),
       'Không xóa được skill',
     );
   }
 
   async function endorse(row) {
     await runMutation(
-      () => endorseMemberSkill({
+      () => (mockMode ? mockStore.endorseMemberSkill({
         workspaceId: activeScope.workspaceId,
         memberSkill: row,
         currentUserRole,
-      }),
+      }) : endorseMemberSkill({
+        workspaceId: activeScope.workspaceId,
+        memberSkill: row,
+        currentUserRole,
+      })),
       'Không endorse được skill',
     );
   }
 
   async function removeEndorsementRow(row) {
     await runMutation(
-      () => removeEndorsement({ id: row.id, workspaceId: activeScope.workspaceId }),
+      () => (mockMode
+        ? mockStore.removeEndorsement({ id: row.id, workspaceId: activeScope.workspaceId })
+        : removeEndorsement({ id: row.id, workspaceId: activeScope.workspaceId })),
       'Không gỡ được endorsement',
     );
   }
@@ -145,13 +230,27 @@ export default function App() {
           <h1>Ai mạnh mảng nào?</h1>
           <p>Tìm người support đúng kỹ năng trong workspace.</p>
         </div>
-        <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
+        {mockMode ? (
+          <span className="mushy-btn mushy-btn--ghost" style={{ pointerEvents: 'none' }}>
+            Mock Team
+          </span>
+        ) : (
+          <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
+        )}
       </header>
 
       {error && (
         <section className="mushy-card error-card">
           Không tải được dữ liệu: {error.message}
         </section>
+      )}
+
+      {showOnboarding && (
+        <QuickStartPanel
+          saving={saving}
+          suggestions={onboardingSuggestions}
+          onAddSkill={quickAddSkill}
+        />
       )}
 
       <main className="main-grid">
@@ -195,6 +294,8 @@ export default function App() {
             rankedResults={rankedResults}
             selectedSkillId={selectedSkillId}
             skills={visibleSkills}
+            canAddActiveSkill={canAddActiveSkill}
+            onAddActiveSkill={quickAddSkill}
             onOpenMember={setSelectedMemberId}
             onPickSkill={setSelectedSkillId}
           />
@@ -222,7 +323,11 @@ export default function App() {
               />
 
               <div className="my-skill-list">
-                {mySkills.length === 0 && <p className="empty-copy">Bạn chưa khai báo skill nào.</p>}
+                {mySkills.length === 0 && (
+                  <p className="empty-copy">
+                    Bạn chưa khai báo skill nào. Chọn nhanh ở phần gợi ý phía trên hoặc nhập skill riêng tại đây.
+                  </p>
+                )}
                 {mySkills.map((row) => (
                   <div className="my-skill-row" key={row.id}>
                     <div>
@@ -259,15 +364,17 @@ export default function App() {
         />
       )}
 
-      <ShareManageModal open={shareOpen} onClose={() => setShareOpen(false)} />
+      {!mockMode && <ShareManageModal open={shareOpen} onClose={() => setShareOpen(false)} />}
     </div>
   );
 }
 
 function SkillResults({
   activeSkill,
+  canAddActiveSkill,
   index,
   loading,
+  onAddActiveSkill,
   onOpenMember,
   onPickSkill,
   rankedResults,
@@ -302,6 +409,15 @@ function SkillResults({
         <div className="result-empty">
           <h3>{activeSkill?.name}</h3>
           <p>Chưa có ai khai báo skill này.</p>
+          {canAddActiveSkill && activeSkill && (
+            <button
+              className="mushy-btn mushy-btn--primary result-empty__action"
+              type="button"
+              onClick={() => onAddActiveSkill(activeSkill)}
+            >
+              Thêm skill này vào profile
+            </button>
+          )}
         </div>
       ) : rankedResults.map((result) => {
         const related = index.memberSkillsByUser.get(result.member.user_id) || [];
@@ -327,6 +443,35 @@ function SkillResults({
         );
       })}
     </div>
+  );
+}
+
+function QuickStartPanel({ saving, suggestions, onAddSkill }) {
+  return (
+    <section className="mushy-card quick-start">
+      <div className="quick-start__copy">
+        <span className="quick-start__step">Bắt đầu trong 10 giây</span>
+        <h2>Khai báo 3 skill đầu tiên</h2>
+        <p>
+          Skill Map chỉ hữu ích khi mọi người tự khai báo vài kỹ năng. Chọn nhanh các skill bạn có thể support team.
+        </p>
+      </div>
+      <div className="quick-start__actions" aria-label="Gợi ý skill để thêm nhanh">
+        {suggestions.length === 0 ? (
+          <span className="quick-start__empty">Bạn đã thêm hết các skill gợi ý hiện có.</span>
+        ) : suggestions.map((skill) => (
+          <button
+            className="quick-skill"
+            disabled={saving}
+            key={skill.id}
+            type="button"
+            onClick={() => onAddSkill(skill)}
+          >
+            + {skill.name}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

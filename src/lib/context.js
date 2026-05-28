@@ -18,6 +18,14 @@ export function getContext() {
   throw new Error('Không tìm thấy APP_CONTEXT — mini-app phải chạy trong Shell hoặc bật DEV mode');
 }
 
+export function tryGetContext(getter = getContext) {
+  try {
+    return { ctx: getter(), error: null };
+  } catch (error) {
+    return { ctx: null, error };
+  }
+}
+
 export function isInShell() {
   return typeof window !== 'undefined' && !!window.ReactNativeWebView;
 }

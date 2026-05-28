@@ -1,0 +1,25 @@
+{
+  "locked": true,
+  "target": 7,
+  "target_min": 6,
+  "intent": "DELIVER",
+  "orchestration_mode": "Local controller",
+  "criteria": [
+    {
+      "name": "correctness",
+      "description": "Quick-add and empty-state actions use existing mutation flows and preserve real/mock behavior."
+    },
+    {
+      "name": "completeness",
+      "description": "New-user onboarding, quick suggestions, manual fallback, and Explore empty action are all present."
+    },
+    {
+      "name": "edge_cases",
+      "description": "Suggestions exclude existing user skills, do not render when editing is unavailable, and handle sparse teams."
+    },
+    {
+      "name": "craft",
+      "description": "UI stays compact, mobile-first, and task-oriented without landing-page copy or visual clutter."
+    }
+  ]
+}
