@@ -1,7 +1,7 @@
 # Kế hoạch & Báo cáo đề xuất dự án: Mini-app Team Connect & Skill Map
 
 > **Kính gửi:** Ban quản lý / Trưởng bộ phận
-> **Người đề xuất:** Nam & AI Assistant
+> **Người đề xuất:** Nam (Mentor/Team Leader) & AI Assistant
 > **Mục tiêu:** Giải quyết bài toán gắn kết đội ngũ, đặc biệt là nhóm thực tập sinh mới vào phòng ban, thông qua việc ứng dụng công nghệ để tự động hóa hoạt động làm quen (onboarding), tìm kiếm điểm chung (common ground) và trực quan hóa thế mạnh của team (skill map).
 
 ---
@@ -61,27 +61,16 @@ Nhờ tinh giản tính năng tương tác thừa và tận dụng hạ tầng c
 
 ---
 
-## II. Ý TƯỞNG THIẾT KẾ & TÍNH NĂNG CHI TIẾT (PRODUCT FEATURES)
+## II. DANH SÁCH & Ý TƯỞNG CÁC TÍNH NĂNG TRIỂN KHAI (PRODUCT FEATURES)
 
-1. **Hồ sơ Cá nhân Trực quan (Interactive Profile)**
-   * Mỗi thành viên tự tạo/sửa hồ sơ giới thiệu bản thân qua 9 câu hỏi cốt lõi dưới dạng chọn lựa trực quan.
-   * Dùng các thẻ tag chọn nhanh cho `Sở thích (Hobbies)`, `Kỹ năng nổi bật (Skills)`, `Mảng quan tâm (Interests)`.
-   * Chọn một **Emoji** đại diện cho cá tính hoặc tâm trạng hiện tại.
-   * Liên kết nhanh mạng xã hội (Facebook, GitHub, LinkedIn).
+Dưới đây là bảng tổng hợp phạm vi các tính năng sẽ được phát triển trong dự án để sếp dễ dàng đánh giá:
 
-2. **Danh bạ Thành viên (Team Directory)**
-   * Hiển thị danh sách thành viên dưới dạng lưới các thẻ (Grid Cards) với đầy đủ Avatar (lấy từ hệ thống Mushy), tên thật, vai trò và Emoji cá nhân.
-   * Click vào thẻ để mở Modal xem chi tiết thông tin giới thiệu của họ.
-
-3. **Tìm điểm chung (Common Ground Finder)**
-   * Tự động quét và liệt kê những điểm chung thú vị giữa người dùng hiện tại và các thành viên khác để tạo cớ bắt chuyện:
-     * *"Bạn và **Nam** đều thích đá bóng ⚽"*
-     * *"Có 4 người trong team cùng muốn học **Next.js**"*
-     * *"Có 3 thành viên sinh năm 2004 🎂"*
-
-4. **Bản đồ Kỹ năng Team (Team Skill Map)**
-   * Thống kê tổng quan các thế mạnh của nhóm (ví dụ: có bao nhiêu người mạnh React, bao nhiêu người mạnh Python).
-   * Cho phép click vào một kỹ năng để lọc nhanh danh sách những thành viên đang có kỹ năng đó để tìm người hỗ trợ khi cần.
+| STT | Tên tính năng | Mô tả chức năng chi tiết | Giá trị mang lại |
+| :--- | :--- | :--- | :--- |
+| **1** | **Thiết lập Hồ sơ Cá nhân** *(Interactive Profile)* | - Cho phép mỗi thành viên tự điền/sửa thông tin dựa trên 9 câu hỏi làm quen.<br>- Nhập dạng Tag chọn nhanh cho *Sở thích, Kỹ năng, Mảng quan tâm*.<br>- Chọn 1 **Emoji** đại diện cho tính cách/tâm trạng.<br>- Nhập link Facebook, GitHub, LinkedIn. | - Rút ngắn thời gian viết giới thiệu (dưới 2 phút).<br>- Tạo cảm giác thú vị, cởi mở, bớt áp lực viết lách cho các bạn Gen Z. |
+| **2** | **Danh bạ Thành viên trực quan** *(Team Directory)* | - Hiển thị danh sách thành viên trong workspace dưới dạng lưới thẻ (Grid Cards).<br>- Mỗi thẻ gồm: Avatar, tên thật (lấy qua API hệ thống), vai trò, emoji và các tag kỹ năng tiêu biểu.<br>- Bấm vào thẻ sẽ mở Modal xem chi tiết toàn bộ hồ sơ của người đó. | - Giúp mọi người nhanh chóng nhớ mặt, biết tên và vai trò của từng thành viên trong nhóm. |
+| **3** | **Quét Điểm chung tự động** *(Common Ground Finder)* | - Quét chéo database để tìm ra các điểm tương đồng giữa người dùng hiện tại và các thành viên khác.<br>- Hiển thị dạng thông báo gợi ý: *"Bạn và Nam đều thích đá bóng ⚽"*, *"3 người cùng muốn học Node.js"*... | - **Phá băng cực kỳ hiệu quả**: Cung cấp sẵn các chủ đề thực tế và sở thích chung để các thành viên dễ bắt chuyện với nhau. |
+| **4** | **Bản đồ Kỹ năng Đội ngũ** *(Team Skill Map)* | - Thống kê tổng số lượng kỹ năng nổi bật của cả nhóm dưới dạng biểu đồ/mạng lưới tag.<br>- Cho phép click vào 1 kỹ năng (ví dụ: *React*) để lọc nhanh danh sách các thành viên giỏi kỹ năng đó. | - Giúp các thành viên tìm được người hỗ trợ (Mentor/Buddy) khi gặp bài toán khó.<br>- Giúp Mentor đánh giá thế mạnh chung của team để phân công việc. |
 
 ---
 
@@ -202,7 +191,7 @@ create trigger trg_member_profiles_updated_at
 
 ### 1. Kiểm thử thủ công trên môi trường Local
 *   **Tạo mới hồ sơ**: Mở app, bấm tạo hồ sơ cá nhân và kiểm tra dữ liệu lưu thành công vào Supabase.
-*   **Giả lập thành viên**: Chạy script tạo dữ liệu mẫu (seed data) giả lập hồ sơ của 8 thực tập sinh khác để xem giao diện hiển thị danh sách thẻ.
+*   **Giả làm thành viên**: Chạy script tạo dữ liệu mẫu (seed data) giả lập hồ sơ của 8 thực tập sinh khác để xem giao diện hiển thị danh sách thẻ.
 *   **Kiểm tra điểm chung**: Xác nhận màn hình hiển thị đúng các dòng thông báo điểm chung (ví dụ: cùng sở thích, cùng kỹ năng).
 *   **Kiểm tra lọc kỹ năng**: Bấm vào tab "Skill Map", click vào một kỹ năng và xem danh sách hiển thị đúng người.
 
