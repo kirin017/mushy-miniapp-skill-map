@@ -1474,16 +1474,16 @@ button {
   }
 
   .skill-heatmap {
-    display: none;
+    display: table;
+    min-width: 470px;
   }
 
   .heat-scroll {
-    overflow: visible;
+    overflow-x: auto;
   }
 
   .heat-mobile-list {
-    display: grid;
-    gap: 10px;
+    display: none;
   }
 
   .heat-mobile-card {
