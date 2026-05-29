@@ -8,6 +8,7 @@ import { listMembers } from './lib/members.js';
 import { useActiveScope, useDefaultScopeInitializer } from './lib/sharing.js';
 import {
   PRESET_SKILLS,
+  buildProfileSummary,
   deleteProfileSkill,
   loadSkillMapData,
   saveProfileSkill,
@@ -148,6 +149,7 @@ function SkillMapApp({ ctx }) {
         <Overview
           skills={skills}
           members={members}
+          currentMember={members.find((member) => member.userId === ctx.userId)}
           onSearch={() => setTab('search')}
           onReport={() => setTab('report')}
           onProfile={() => setTab('profile')}
@@ -209,7 +211,14 @@ function ShellRequired({ error }) {
   );
 }
 
-function Overview({ skills, members, onSearch, onReport, onProfile, onSelectSkill, selectedSkill, profileSkills }) {
+function ProfileAvatar({ summary }) {
+  if (summary.avatarUrl) {
+    return <img className="profile-avatar" src={summary.avatarUrl} alt="" />;
+  }
+  return <span className="profile-avatar">{summary.avatar}</span>;
+}
+
+function Overview({ skills, members, currentMember, onSearch, onReport, onProfile, onSelectSkill, selectedSkill, profileSkills }) {
   const topSkills = skills.slice(0, 4);
   const [overviewSearch, setOverviewSearch] = useState('');
   const [noticeOpen, setNoticeOpen] = useState(false);
@@ -244,9 +253,7 @@ function Overview({ skills, members, onSearch, onReport, onProfile, onSelectSkil
     : heatMode === 'risk'
       ? 'Hiển thị kỹ năng cần bổ sung'
       : 'Hiển thị top kỹ năng';
-  const profileSkillMap = new Map(skills.map((skill) => [skill.id, skill]));
-  const learningCount = profileSkills.filter((skill) => skill.level <= 2).length;
-  const featuredProfileSkills = profileSkills.slice(0, 4).map((skill) => profileSkillMap.get(skill.id)?.name || skill.id);
+  const profileSummary = buildProfileSummary({ currentMember, profileSkills, skills });
 
   return (
     <div className="screen screen--overview">
@@ -451,14 +458,14 @@ function Overview({ skills, members, onSearch, onReport, onProfile, onSelectSkil
             <button type="button" onClick={onProfile}>Sửa</button>
           </div>
           <div className="desktop-profile">
-            <span>🐱</span>
+            <ProfileAvatar summary={profileSummary} />
             <div>
-              <strong>Nguyễn Hà My</strong>
-              <small>{profileSkills.length} kỹ năng nổi bật · {learningCount} đang học</small>
+              <strong>{profileSummary.name}</strong>
+              <small>{profileSummary.skillCount} kỹ năng nổi bật · {profileSummary.learningCount} đang học</small>
             </div>
           </div>
           <div className="desktop-skill-tags">
-            {featuredProfileSkills.map((skill) => <b key={skill}>{skill}</b>)}
+            {profileSummary.featuredSkills.map((skill) => <b key={skill}>{skill}</b>)}
           </div>
         </section>
       </div>
@@ -466,6 +473,7 @@ function Overview({ skills, members, onSearch, onReport, onProfile, onSelectSkil
       <DesktopCompanion
         skills={skills}
         members={members}
+        currentMember={currentMember}
         selectedSkill={selectedSkill}
         profileSkills={profileSkills}
         onSearch={onSearch}
@@ -477,11 +485,9 @@ function Overview({ skills, members, onSearch, onReport, onProfile, onSelectSkil
   );
 }
 
-function DesktopCompanion({ skills, members, selectedSkill, profileSkills, onSearch, onReport, onProfile, onSelectSkill }) {
+function DesktopCompanion({ skills, members, currentMember, selectedSkill, profileSkills, onSearch, onReport, onProfile, onSelectSkill }) {
   const selected = skills.find((skill) => skill.id === selectedSkill) || skills[0] || INITIAL_SKILLS[0];
-  const profileSkillMap = new Map(skills.map((skill) => [skill.id, skill]));
-  const learningCount = profileSkills.filter((skill) => skill.level <= 2).length;
-  const featuredProfileSkills = profileSkills.slice(0, 4).map((skill) => profileSkillMap.get(skill.id)?.name || skill.id);
+  const profileSummary = buildProfileSummary({ currentMember, profileSkills, skills });
   const topMembers = members
     .map((member) => ({
       ...member,
@@ -525,14 +531,14 @@ function DesktopCompanion({ skills, members, selectedSkill, profileSkills, onSea
           <button type="button" onClick={onProfile}>Sửa</button>
         </div>
         <div className="desktop-profile">
-          <span>🐱</span>
+          <ProfileAvatar summary={profileSummary} />
           <div>
-            <strong>Nguyễn Hà My</strong>
-            <small>{profileSkills.length} kỹ năng nổi bật · {learningCount} đang học</small>
+            <strong>{profileSummary.name}</strong>
+            <small>{profileSummary.skillCount} kỹ năng nổi bật · {profileSummary.learningCount} đang học</small>
           </div>
         </div>
         <div className="desktop-skill-tags">
-          {featuredProfileSkills.map((skill) => <b key={skill}>{skill}</b>)}
+          {profileSummary.featuredSkills.map((skill) => <b key={skill}>{skill}</b>)}
         </div>
       </section>
 

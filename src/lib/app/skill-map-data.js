@@ -36,6 +36,19 @@ export function buildMemberSkillUpsert({ workspaceId, userId, skillId, level, in
   };
 }
 
+export function buildProfileSummary({ currentMember, profileSkills = [], skills = [] }) {
+  const skillMap = new Map(skills.map((skill) => [skill.id, skill]));
+  return {
+    name: currentMember?.name || 'Hồ sơ của bạn',
+    handle: currentMember?.handle || '@me',
+    avatar: currentMember?.avatar || '?',
+    avatarUrl: currentMember?.avatarUrl || null,
+    skillCount: profileSkills.length,
+    learningCount: profileSkills.filter((skill) => skill.level <= 2).length,
+    featuredSkills: profileSkills.slice(0, 4).map((skill) => skillMap.get(skill.id)?.name || skill.id),
+  };
+}
+
 export function composeSkillMapView({ currentUserId, skills = [], memberSkills = [], members = [] }) {
   const skillRows = [...skills].sort(compareSkills);
   const skillsById = new Map(skillRows.map((skill) => [skill.id, skill]));

@@ -1348,13 +1348,14 @@ button {
 }
 
 .skill-focus > span,
-.desktop-profile > span {
+.profile-avatar {
   display: grid;
   place-items: center;
   width: 58px;
   height: 58px;
   border-radius: 18px;
   background: #ffe6eb;
+  object-fit: cover;
   font-size: 34px;
 }
 

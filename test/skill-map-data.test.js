@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildProfileSummary,
   buildMemberSkillUpsert,
   buildPresetSkillRows,
   composeSkillMapView,
@@ -73,4 +74,34 @@ test('buildMemberSkillUpsert writes the selected scope and current user', () => 
       note: 'Mentoring',
     },
   );
+});
+
+test('buildProfileSummary uses the current Mushy member instead of fallback mock identity', () => {
+  const summary = buildProfileSummary({
+    currentMember: {
+      userId: 'u-real',
+      name: 'Tran Minh Duc',
+      handle: '@duc',
+      avatar: 'TD',
+      avatarUrl: 'https://example.test/duc.png',
+    },
+    profileSkills: [
+      { id: 'react', level: 3 },
+      { id: 'docker', level: 1 },
+    ],
+    skills: [
+      { id: 'react', name: 'React' },
+      { id: 'docker', name: 'Docker' },
+    ],
+  });
+
+  assert.deepEqual(summary, {
+    name: 'Tran Minh Duc',
+    handle: '@duc',
+    avatar: 'TD',
+    avatarUrl: 'https://example.test/duc.png',
+    skillCount: 2,
+    learningCount: 1,
+    featuredSkills: ['React', 'Docker'],
+  });
 });
