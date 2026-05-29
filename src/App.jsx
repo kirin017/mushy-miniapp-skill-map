@@ -662,7 +662,11 @@ function ProfileScreen({
   const availableSkills = profileSkillCatalog.filter(
     (skill) => skill.skillId && !profileSkills.some((profileSkill) => profileSkill.id === skill.id),
   );
-  const learningCount = profileSkills.filter((skill) => skill.level <= 2).length;
+  const profileSummary = buildProfileSummary({
+    currentMember,
+    profileSkills,
+    skills: profileSkillCatalog,
+  });
 
   function openAddForm() {
     const firstSkill = availableSkills[0] || profileSkillCatalog[0];
@@ -730,10 +734,10 @@ function ProfileScreen({
         </section>
       )}
       <section className="profile-card">
-        <span className="profile-face">{currentMember?.avatar || '?'}</span>
+        <ProfileAvatar summary={profileSummary} />
         <div>
-          <h2>{currentMember?.name || 'Hồ sơ của bạn'}</h2>
-          <p>{currentMember?.handle || '@me'} · {profileSkills.length} kỹ năng · {learningCount} đang học</p>
+          <h2>{profileSummary.name}</h2>
+          <p>{profileSummary.handle} · {profileSummary.skillCount} kỹ năng · {profileSummary.learningCount} đang học</p>
         </div>
         <button type="button" onClick={openAddForm} aria-label="Thêm kỹ năng" disabled={!availableSkills.length || saving}>＋</button>
       </section>
