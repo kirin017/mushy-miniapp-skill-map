@@ -218,6 +218,19 @@ function ProfileAvatar({ summary }) {
   return <span className="profile-avatar">{summary.avatar}</span>;
 }
 
+function SkillIcon({ skill, className = '', compact = false }) {
+  const classes = ['skill-icon', compact ? 'skill-icon--compact' : '', className].filter(Boolean).join(' ');
+  return (
+    <span className={classes} aria-hidden="true">
+      {skill.iconUrl ? (
+        <img src={skill.iconUrl} alt="" loading="lazy" />
+      ) : (
+        <span className="skill-icon-fallback">{skill.icon}</span>
+      )}
+    </span>
+  );
+}
+
 function Overview({ skills, members, currentMember, onSearch, onReport, onProfile, onSelectSkill, selectedSkill, profileSkills }) {
   const topSkills = skills.slice(0, 4);
   const [overviewSearch, setOverviewSearch] = useState('');
@@ -351,7 +364,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
                   <th>Thành viên</th>
                   {heatSkills.map((skill) => (
                     <th key={skill.id}>
-                      <span>{skill.icon}</span>
+                      <SkillIcon skill={skill} />
                       {skill.name}
                     </th>
                   ))}
@@ -398,7 +411,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
                   <div>
                     {heatSkills.map((skill) => (
                       <button key={skill.id} type="button" onClick={() => onSelectSkill(skill.id)}>
-                        <span>{skill.icon} {skill.name}</span>
+                        <span><SkillIcon skill={skill} compact /> {skill.name}</span>
                         <b className={`level-${member.skills[skill.id] || 0}`}>{member.skills[skill.id] || 0}</b>
                       </button>
                     ))}
@@ -443,7 +456,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
           <div className="popular-grid">
             {topSkills.map((skill) => (
               <button key={skill.id} className="popular-card" type="button" onClick={() => onSelectSkill(skill.id)}>
-                <span>{skill.icon}</span>
+                <SkillIcon skill={skill} />
                 <strong>{skill.name}</strong>
                 <small>{skill.total}/{Math.max(members.length, 1)} người</small>
                 <i style={{ '--fill': `${Math.max(12, skill.total * 14)}%` }} />
@@ -506,7 +519,7 @@ function DesktopCompanion({ skills, members, currentMember, selectedSkill, profi
           <button type="button" onClick={onSearch}>Mở</button>
         </div>
         <div className="skill-focus">
-          <span>{selected.icon}</span>
+          <SkillIcon skill={selected} />
           <div>
             <strong>{selected.name}</strong>
             <small>{topMembers.length} người phù hợp nhất</small>
@@ -579,7 +592,7 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
                 setSelectedMemberId(null);
               }}
             >
-              <span>{skill.icon}</span>
+              <SkillIcon skill={skill} compact />
               {skill.name}
             </button>
           ))}
@@ -587,7 +600,7 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
       </div>
 
       <section className="skill-detail-card">
-        <span className="skill-big">{selected.icon}</span>
+        <SkillIcon skill={selected} className="skill-big" />
         <div>
           <h2>{selected.name}</h2>
           <p>{rows.length} thành viên có kỹ năng này</p>
@@ -772,7 +785,7 @@ function ProfileScreen({
                 className={draft.skillId === skill.id ? 'active' : ''}
                 onClick={() => setDraft((current) => ({ ...current, skillId: skill.id }))}
               >
-                <span>{skill.icon}</span>
+                <SkillIcon skill={skill} compact />
                 {skill.name}
               </button>
             ))}
@@ -843,7 +856,7 @@ function ProfileScreen({
           if (!skill) return null;
           return (
             <article className="profile-skill" key={id}>
-              <span>{skill.icon}</span>
+              <SkillIcon skill={skill} />
               <div>
                 <strong>{skill.name}</strong>
                 <small>Level {level}</small>
@@ -880,7 +893,7 @@ function ReportScreen({ skills, onBack }) {
       <div className="risk-list">
         {risks.map((skill) => (
           <article className="risk-card" key={skill.id}>
-            <span>{skill.icon}</span>
+            <SkillIcon skill={skill} />
             <div>
               <strong>{skill.name}</strong>
               <small>{skill.total > 0 ? `${skill.total} người ở mức 3-4` : '0 người ở mức 3-4'}</small>

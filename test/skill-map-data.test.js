@@ -2,11 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  PRESET_SKILLS,
   buildProfileSummary,
   buildMemberSkillUpsert,
   buildPresetSkillRows,
   composeSkillMapView,
 } from '../src/lib/app/skill-map-data.js';
+
+test('preset skills expose visual icon assets instead of initials-only labels', () => {
+  const textOnlyLabels = new Set(['Go', 'AI', 'QA', 'Sec', 'PG', 'Fig', 'App', 'PM']);
+
+  assert.equal(PRESET_SKILLS.every((skill) => skill.iconUrl?.startsWith('https://cdn.simpleicons.org/')), true);
+  assert.equal(PRESET_SKILLS.every((skill) => skill.iconAlt === `${skill.name} icon`), true);
+  assert.equal(PRESET_SKILLS.every((skill) => !textOnlyLabels.has(skill.icon)), true);
+});
 
 test('buildPresetSkillRows creates RLS-ready preset rows for the active workspace', () => {
   const rows = buildPresetSkillRows({ workspaceId: 'ws-1', userId: 'user-1' });
@@ -44,6 +53,8 @@ test('composeSkillMapView derives heatmap members, skills, and current user prof
   });
 
   assert.equal(view.skills.find((skill) => skill.name === 'React').total, 2);
+  assert.match(view.skills.find((skill) => skill.name === 'React').iconUrl, /^https:\/\/cdn\.simpleicons\.org\/react/);
+  assert.equal(view.skills.find((skill) => skill.name === 'Docker').iconAlt, 'Docker icon');
   assert.equal(view.skills.find((skill) => skill.name === 'Security').risk, 1);
   assert.equal(view.members[0].name, 'Nguyen Ha My');
   assert.equal(view.members[0].skills.react, 3);
