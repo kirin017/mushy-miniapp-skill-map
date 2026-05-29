@@ -6,6 +6,20 @@
 
 ---
 
+## 🚀 HƯỚNG DẪN CHẠY BẰNG META-HARNESS
+Sau khi bản kế hoạch này được duyệt, bạn có thể kích hoạt **vòng lặp tự động hóa code & kiểm thử** bằng cách gõ lệnh sau vào khung chat với AI:
+
+```text
+$meta-harness triển khai kế hoạch tại implementation_plan.md --target=8 --max-iter=3
+```
+
+*Ý nghĩa các tham số:*
+*   `triển khai kế hoạch...`: Trực tiếp chỉ định AI đọc file này và tự động chia việc làm.
+*   `--target=8`: Điểm số chất lượng mục tiêu (trên thang điểm 10) mà hệ thống tự đánh giá cần đạt được.
+*   `--max-iter=3`: Số lần lặp lại tối đa để tự sửa lỗi và tối ưu code trước khi bàn giao (nếu chạy chưa đạt điểm 8). Bạn có thể thay bằng `--max-iter=until-pass` (chạy cho tới khi đạt) kèm giới hạn ngân sách `--budget=500000_tokens`.
+
+---
+
 ## I. BÁO CÁO NGHIÊN CỨU THỊ TRƯỜNG & ĐỀ XUẤT GIẢI PHÁP
 
 ### 1. Bối cảnh & Nỗi đau của phòng ban (Problem Statement)
@@ -82,7 +96,7 @@ Dưới đây là bảng tổng hợp phạm vi các tính năng cốt lõi (Cor
 
 ## III. THIẾT KẾ DATABASE (SUPABASE MIGRATION)
 
-Chúng ta chỉ cần 1 bảng duy nhất trong schema `app_skill_map` (lưu ý: slug `skill-map` được chuẩn hóa thành `app_skill_map` trong database):
+Chúng ta chỉ cần 1 bảng duy nhất trong schema `app_skill_map`. Tên schema được tự động chuẩn hóa từ slug `skill-map` bằng cách thay thế dấu gạch ngang (`-`) bằng dấu gạch dưới (`_`), dựa trên quy định tại [CLAUDE.md](file:///home/namdv/workspace/mushy-miniapp-skill-map/CLAUDE.md#L124-L132) và [Tài liệu phát triển Mushy v2026.05 - Chương 9.1](https://admin.mini.mushy-app.com/guide/mini-app/#sec-9-1) (vì PostgreSQL không nhận dấu gạch ngang trong tên định danh chưa bao đóng).
 
 ### Bảng `app_skill_map.member_profiles`
 Lưu thông tin giới thiệu chi tiết của từng thành viên trong team.
@@ -91,10 +105,10 @@ Lưu thông tin giới thiệu chi tiết của từng thành viên trong team.
 * `user_id` uuid (khóa ngoại liên kết với `auth.users(id)`, duy nhất mỗi workspace)
 * `birth_year` integer (năm sinh)
 * `major_role` text (chuyên ngành / vai trò)
-* `interests` text[] (mảng các mảng quan tâm, ví dụ: `['AI', 'Frontend']`)
+* `interests     ` text[] (mảng các mảng quan tâm, ví dụ: `['AI', 'Frontend']`)
 * `skills` text[] (mảng kỹ năng nổi bật, ví dụ: `['React', 'Node.js', 'Figma']`)
 * `learning_goals` text (muốn học gì khi vào team)
-* `strengths` text (điểm mạnh của bản thân)
+* `strengths     ` text (điểm mạnh của bản thân)
 * `hobbies` text[] (sở thích cá nhân, ví dụ: `['Gaming', 'Đá bóng']`)
 * `social_links` jsonb (chứa `{facebook: '...', github: '...', linkedin: '...'}`)
 * `emoji` text (emoji đại diện)
