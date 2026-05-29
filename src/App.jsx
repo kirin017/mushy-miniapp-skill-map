@@ -96,15 +96,18 @@ function SkillMapApp({ ctx }) {
   }, [members, query, selected.name, selectedSkill]);
 
   async function handleSaveProfileSkill(draft) {
-    const skill = skills.find((item) => item.id === draft.skillId);
-    if (!skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để lưu');
+    const skill = draft.customSkill ? null : skills.find((item) => item.id === draft.skillId);
+    if (!draft.customSkill && !skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để lưu');
+    if (draft.customSkill && !draft.skillName?.trim()) throw new Error('Tên kỹ năng không được để trống');
     setSaving(true);
     try {
       await saveProfileSkill({
         db,
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
-        skillId: skill.skillId,
+        skillId: skill?.skillId || null,
+        skillName: draft.customSkill ? draft.skillName : null,
+        category: draft.customSkill ? draft.category : null,
         level: draft.level,
         interest: draft.interest,
         note: draft.note,
@@ -680,13 +683,18 @@ function ProfileScreen({
     profileSkills,
     skills: profileSkillCatalog,
   });
+  const canSaveDraft = draft
+    ? !saving && (draft.customSkill ? draft.skillName.trim().length > 0 : !!draft.skillId)
+    : false;
 
   function openAddForm() {
     const firstSkill = availableSkills[0] || profileSkillCatalog[0];
-    if (!firstSkill) return;
     setDraft({
       mode: 'add',
-      skillId: firstSkill.id,
+      skillId: firstSkill?.id || '',
+      customSkill: !firstSkill,
+      skillName: '',
+      category: 'Custom',
       level: 1,
       interest: 2,
       note: '',
@@ -752,7 +760,7 @@ function ProfileScreen({
           <h2>{profileSummary.name}</h2>
           <p>{profileSummary.handle} · {profileSummary.skillCount} kỹ năng · {profileSummary.learningCount} đang học</p>
         </div>
-        <button type="button" onClick={openAddForm} aria-label="Thêm kỹ năng" disabled={!availableSkills.length || saving}>＋</button>
+        <button type="button" onClick={openAddForm} aria-label="Thêm kỹ năng" disabled={saving}>＋</button>
       </section>
 
       {error && (
@@ -764,7 +772,7 @@ function ProfileScreen({
 
       <div className="profile-head">
         <strong>Kỹ năng của bạn ({profileSkills.length})</strong>
-        <button type="button" onClick={openAddForm} disabled={!availableSkills.length || saving}>+ Thêm kỹ năng</button>
+        <button type="button" onClick={openAddForm} disabled={saving}>+ Thêm kỹ năng</button>
       </div>
 
       {draft && (
@@ -782,14 +790,47 @@ function ProfileScreen({
               <button
                 key={skill.id}
                 type="button"
-                className={draft.skillId === skill.id ? 'active' : ''}
-                onClick={() => setDraft((current) => ({ ...current, skillId: skill.id }))}
+                className={!draft.customSkill && draft.skillId === skill.id ? 'active' : ''}
+                onClick={() => setDraft((current) => ({ ...current, customSkill: false, skillId: skill.id }))}
               >
                 <SkillIcon skill={skill} compact />
                 {skill.name}
               </button>
             ))}
+            {draft.mode === 'add' && (
+              <button
+                type="button"
+                className={draft.customSkill ? 'active' : ''}
+                onClick={() => setDraft((current) => ({ ...current, customSkill: true, skillId: '' }))}
+              >
+                <span aria-hidden="true">＋</span>
+                Skill mới
+              </button>
+            )}
           </div>
+
+          {draft.mode === 'add' && draft.customSkill && (
+            <div className="custom-skill-fields">
+              <label className="text-field">
+                <span>Tên kỹ năng</span>
+                <input
+                  value={draft.skillName}
+                  maxLength="80"
+                  onChange={(event) => setDraft((current) => ({ ...current, skillName: event.target.value }))}
+                  placeholder="Ví dụ: Kafka Streams, Rust, SEO..."
+                />
+              </label>
+              <label className="text-field">
+                <span>Nhóm</span>
+                <input
+                  value={draft.category}
+                  maxLength="40"
+                  onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
+                  placeholder="Backend, Design, Data..."
+                />
+              </label>
+            </div>
+          )}
 
           <label className="range-row">
             <span>Level <b>{draft.level}</b></span>
@@ -827,7 +868,7 @@ function ProfileScreen({
 
           <div className="form-actions-inline">
             <button type="button" onClick={() => setDraft(null)} disabled={saving}>Hủy</button>
-            <button type="button" onClick={saveDraft} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu kỹ năng'}</button>
+            <button type="button" onClick={saveDraft} disabled={!canSaveDraft}>{saving ? 'Đang lưu...' : 'Lưu kỹ năng'}</button>
           </div>
         </section>
       )}
@@ -878,7 +919,7 @@ function ProfileScreen({
         </section>
       )}
 
-      <button className="add-more" type="button" onClick={openAddForm} disabled={!availableSkills.length || saving}>＋ Thêm kỹ năng khác</button>
+      <button className="add-more" type="button" onClick={openAddForm} disabled={saving}>＋ Thêm kỹ năng khác</button>
     </div>
   );
 }

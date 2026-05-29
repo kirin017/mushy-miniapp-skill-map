@@ -1291,12 +1291,14 @@ button {
 }
 
 .range-row,
+.text-field,
 .note-field {
   display: grid;
   gap: 8px;
 }
 
 .range-row span,
+.text-field span,
 .note-field span {
   color: #5f5963;
   font-size: 13px;
@@ -1314,6 +1316,28 @@ button {
 
 .range-row small {
   color: var(--mushy-muted);
+}
+
+.custom-skill-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.text-field input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--mushy-line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  outline: 0;
+  background: #fffafb;
+  color: var(--mushy-ink);
+}
+
+.text-field input:focus,
+.note-field textarea:focus {
+  border-color: rgba(255, 63, 95, 0.42);
 }
 
 .note-field textarea {
@@ -1839,6 +1863,10 @@ button {
   .profile-skill b {
     padding: 5px 7px;
     font-size: 10px;
+  }
+
+  .custom-skill-fields {
+    grid-template-columns: 1fr;
   }
 }
 

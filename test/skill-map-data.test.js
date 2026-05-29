@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 
 import {
   PRESET_SKILLS,
+  buildCustomSkillUpsert,
   buildProfileSummary,
   buildMemberSkillUpsert,
   buildPresetSkillRows,
   composeSkillMapView,
+  saveProfileSkill,
 } from '../src/lib/app/skill-map-data.js';
 
 test('preset skills expose visual icon assets instead of initials-only labels', () => {
@@ -85,6 +87,66 @@ test('buildMemberSkillUpsert writes the selected scope and current user', () => 
       note: 'Mentoring',
     },
   );
+});
+
+test('buildCustomSkillUpsert creates a normalized non-preset skill row', () => {
+  assert.deepEqual(
+    buildCustomSkillUpsert({
+      workspaceId: 'ws-active',
+      userId: 'u-me',
+      name: '  Kafka Streams  ',
+      category: '  Backend  ',
+    }),
+    {
+      workspace_id: 'ws-active',
+      created_by: 'u-me',
+      name: 'Kafka Streams',
+      category: 'Backend',
+      is_preset: false,
+    },
+  );
+});
+
+test('saveProfileSkill creates a custom skill before attaching it to the current profile', async () => {
+  const calls = [];
+  const db = {
+    from(table) {
+      return {
+        upsert(row, options) {
+          calls.push({ table, row, options });
+          return {
+            select() {
+              return {
+                single() {
+                  if (table === 'skills') {
+                    return Promise.resolve({ data: { id: 'skill-kafka', name: row.name }, error: null });
+                  }
+                  return Promise.resolve({ data: { id: 'member-skill-1', ...row }, error: null });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    skillName: 'Kafka Streams',
+    category: 'Backend',
+    level: 2,
+    interest: 3,
+    note: 'Want production tasks',
+  });
+
+  assert.equal(saved.skill_id, 'skill-kafka');
+  assert.deepEqual(calls.map((call) => call.table), ['skills', 'member_skills']);
+  assert.equal(calls[0].options.onConflict, 'workspace_id,name');
+  assert.equal(calls[0].row.is_preset, false);
+  assert.equal(calls[1].row.skill_id, 'skill-kafka');
 });
 
 test('buildProfileSummary uses the current Mushy member instead of fallback mock identity', () => {

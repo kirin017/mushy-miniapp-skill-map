@@ -24,6 +24,18 @@ export function buildPresetSkillRows({ workspaceId, userId }) {
   }));
 }
 
+export function buildCustomSkillUpsert({ workspaceId, userId, name, category }) {
+  const skillName = String(name || '').trim();
+  if (!skillName) throw new Error('Tên kỹ năng không được để trống');
+  return {
+    workspace_id: workspaceId,
+    created_by: userId,
+    name: skillName.slice(0, 80),
+    category: String(category || 'Custom').trim().slice(0, 40) || 'Custom',
+    is_preset: false,
+  };
+}
+
 export function buildMemberSkillUpsert({ workspaceId, userId, skillId, level, interest, note }) {
   return {
     workspace_id: workspaceId,
@@ -158,8 +170,9 @@ export async function loadSkillMapData({ db, listMembers, workspaceId, userId })
   return composeSkillMapView({ currentUserId: userId, skills, memberSkills, members });
 }
 
-export async function saveProfileSkill({ db, workspaceId, userId, skillId, level, interest, note }) {
-  const row = buildMemberSkillUpsert({ workspaceId, userId, skillId, level, interest, note });
+export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note }) {
+  const resolvedSkillId = skillId || await createCustomSkill({ db, workspaceId, userId, skillName, category });
+  const row = buildMemberSkillUpsert({ workspaceId, userId, skillId: resolvedSkillId, level, interest, note });
   const { data, error } = await db
     .from('member_skills')
     .upsert(row, { onConflict: 'workspace_id,user_id,skill_id' })
@@ -177,6 +190,21 @@ export async function deleteProfileSkill({ db, workspaceId, userId, skillId }) {
     .eq('user_id', userId)
     .eq('skill_id', skillId);
   if (error) throw new Error('delete profile skill: ' + error.message);
+}
+
+async function createCustomSkill({ db, workspaceId, userId, skillName, category }) {
+  const row = buildCustomSkillUpsert({ workspaceId, userId, name: skillName, category });
+  const { data, error } = await db
+    .from('skills')
+    .upsert(row, {
+      onConflict: 'workspace_id,name',
+      ignoreDuplicates: false,
+    })
+    .select('id,name,category,is_preset')
+    .single();
+  if (error) throw new Error('create custom skill: ' + error.message);
+  if (!data?.id) throw new Error('create custom skill: missing id');
+  return data.id;
 }
 
 function fetchSkills(db, workspaceId) {
