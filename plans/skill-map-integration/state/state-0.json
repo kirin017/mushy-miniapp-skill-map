@@ -1,0 +1,13 @@
+{
+  "iteration": 0,
+  "status": "planned",
+  "agent_split": "Local only",
+  "reason": "Data contract and UI wiring are coupled through App.jsx and active scope state.",
+  "prior_scores": {},
+  "targeted_criteria": [
+    "data_backed_integration",
+    "workspace_scope_security",
+    "runtime_resilience",
+    "verification"
+  ]
+}

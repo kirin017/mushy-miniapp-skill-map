@@ -1,95 +1,85 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
-
-const SKILLS = [
-  { id: 'react', name: 'React', icon: '⚛️', total: 6, risk: 0 },
-  { id: 'golang', name: 'Golang', icon: '🐹', total: 4, risk: 1 },
-  { id: 'docker', name: 'Docker', icon: '🐳', total: 5, risk: 0 },
-  { id: 'ai', name: 'AI/ML', icon: '🧠', total: 3, risk: 1 },
-  { id: 'devops', name: 'DevOps', icon: '∞', total: 1, risk: 1 },
-  { id: 'testing', name: 'Testing', icon: '🧪', total: 0, risk: 1 },
-  { id: 'security', name: 'Security', icon: '🛡️', total: 0, risk: 1 },
-  { id: 'postgres', name: 'PostgreSQL', icon: '🐘', total: 1, risk: 1 },
-];
-
-const MEMBERS = [
-  {
-    id: 'nam',
-    name: 'Đậu Văn Nam',
-    handle: '@namdv',
-    avatar: '👨🏻‍💻',
-    skills: { react: 3, golang: 2, docker: 4, ai: 2, devops: 1 },
-  },
-  {
-    id: 'my',
-    name: 'Nguyễn Hà My',
-    handle: '@hamy',
-    avatar: '🐱',
-    skills: { react: 3, golang: 2, docker: 3, ai: 2, devops: 2 },
-  },
-  {
-    id: 'duc',
-    name: 'Trần Minh Đức',
-    handle: '@ducmt',
-    avatar: '🧑🏻‍💼',
-    skills: { react: 1, golang: 2, docker: 2, ai: 4, devops: 3 },
-  },
-  {
-    id: 'anh',
-    name: 'Lê Phương Anh',
-    handle: '@anhle',
-    avatar: '👩🏻‍🎨',
-    skills: { react: 1, golang: 2, docker: 2, ai: 1, devops: 2 },
-  },
-  {
-    id: 'bao',
-    name: 'Phạm Quốc Bảo',
-    handle: '@baopq',
-    avatar: '🧑🏽‍💻',
-    skills: { react: 0, golang: 3, docker: 1, ai: 0, devops: 1 },
-  },
-  {
-    id: 'huy',
-    name: 'Võ Gia Huy',
-    handle: '@huyyg',
-    avatar: '🧑🏻',
-    skills: { react: 1, golang: 3, docker: 2, ai: 2, devops: 2 },
-  },
-  {
-    id: 'linh',
-    name: 'Mai Khánh Linh',
-    handle: '@linhmk',
-    avatar: '👩🏻‍💻',
-    skills: { react: 4, golang: 1, docker: 3, ai: 3, devops: 0 },
-  },
-];
+import ScopeSwitcher from './components/ScopeSwitcher.jsx';
+import ShareManageModal from './components/ShareManageModal.jsx';
+import { getContext } from './lib/context.js';
+import { db } from './lib/supabase.js';
+import { listMembers } from './lib/members.js';
+import { useActiveScope, useDefaultScopeInitializer } from './lib/sharing.js';
+import {
+  PRESET_SKILLS,
+  deleteProfileSkill,
+  loadSkillMapData,
+  saveProfileSkill,
+} from './lib/app/skill-map-data.js';
 
 const LEVEL_LABELS = ['Học', 'Cơ bản', 'Làm được', 'Thành thạo', 'Mentor'];
 const LEVEL_BADGES = ['0 Học', '1 Cơ bản', '2 Làm được', '3 Thành thạo', '4 Mentor'];
-const PROFILE_SKILL_CATALOG = [
-  ...SKILLS,
-  { id: 'figma', name: 'Figma', icon: '🎨', total: 2, risk: 0 },
-  { id: 'mobile', name: 'Mobile', icon: '📱', total: 2, risk: 0 },
-  { id: 'pm', name: 'Product', icon: '🧭', total: 1, risk: 0 },
-];
-const INITIAL_PROFILE_SKILLS = [
-  { id: 'react', level: 3, interest: 3, note: 'Component UI, state management' },
-  { id: 'golang', level: 2, interest: 2, note: 'API cơ bản' },
-  { id: 'docker', level: 3, interest: 3, note: 'Deploy và compose' },
-  { id: 'ai', level: 2, interest: 3, note: 'Prompting, prototype AI' },
-  { id: 'figma', level: 1, interest: 2, note: 'Wireframe nhanh' },
-];
+const INITIAL_SKILLS = PRESET_SKILLS.map((skill) => ({ ...skill, skillId: null, total: 0, risk: 1 }));
+const EMPTY_VIEW = { skills: INITIAL_SKILLS, members: [], profileSkills: [] };
 
 export default function App() {
+  const [ctxResult] = useState(() => {
+    try {
+      return { ctx: getContext(), error: null };
+    } catch (error) {
+      return { ctx: null, error };
+    }
+  });
+
+  if (!ctxResult.ctx) {
+    return <ShellRequired error={ctxResult.error} />;
+  }
+
+  return <SkillMapApp ctx={ctxResult.ctx} />;
+}
+
+function SkillMapApp({ ctx }) {
+  useDefaultScopeInitializer();
+  const activeScope = useActiveScope();
   const [tab, setTab] = useState('overview');
   const [query, setQuery] = useState('Docker');
   const [selectedSkill, setSelectedSkill] = useState('docker');
-  const [profileSkills, setProfileSkills] = useState(INITIAL_PROFILE_SKILLS);
+  const [view, setView] = useState(EMPTY_VIEW);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const selected = SKILLS.find((skill) => skill.id === selectedSkill) || SKILLS[2];
+  const skills = view.skills.length ? view.skills : INITIAL_SKILLS;
+  const members = view.members;
+  const profileSkills = view.profileSkills;
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const next = await loadSkillMapData({
+        db,
+        listMembers,
+        workspaceId: activeScope.workspaceId,
+        userId: ctx.userId,
+      });
+      setView(next);
+      if (next.skills.length && !next.skills.some((skill) => skill.id === selectedSkill)) {
+        setSelectedSkill(next.skills[0].id);
+        setQuery(next.skills[0].name);
+      }
+    } catch (error) {
+      setLoadError(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeScope.workspaceId, ctx.userId, selectedSkill]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const selected = skills.find((skill) => skill.id === selectedSkill) || skills[0] || INITIAL_SKILLS[0];
   const searchRows = useMemo(() => {
-        const q = normalizeText(query.trim());
-    return MEMBERS
+    const q = normalizeText(query.trim());
+    return members
       .map((member) => ({
         ...member,
         level: member.skills[selectedSkill] ?? 0,
@@ -102,12 +92,62 @@ export default function App() {
           || normalizeText(selected.name).includes(q);
       })
       .sort((a, b) => b.level - a.level || b.interest - a.interest);
-  }, [query, selected.name, selectedSkill]);
+  }, [members, query, selected.name, selectedSkill]);
+
+  async function handleSaveProfileSkill(draft) {
+    const skill = skills.find((item) => item.id === draft.skillId);
+    if (!skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để lưu');
+    setSaving(true);
+    try {
+      await saveProfileSkill({
+        db,
+        workspaceId: activeScope.workspaceId,
+        userId: ctx.userId,
+        skillId: skill.skillId,
+        level: draft.level,
+        interest: draft.interest,
+        note: draft.note,
+      });
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteProfileSkill(skillKey) {
+    const skill = skills.find((item) => item.id === skillKey);
+    if (!skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để xóa');
+    setSaving(true);
+    try {
+      await deleteProfileSkill({
+        db,
+        workspaceId: activeScope.workspaceId,
+        userId: ctx.userId,
+        skillId: skill.skillId,
+      });
+      await reload();
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <main className="mushy-shell">
+      <div className="integration-strip">
+        <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
+        <button type="button" onClick={reload} disabled={loading}>{loading ? 'Đang tải' : 'Làm mới'}</button>
+      </div>
+      {loadError && (
+        <section className="data-error" role="alert">
+          <strong>Chưa tải được dữ liệu Skill Map</strong>
+          <p>{loadError.message}</p>
+          <small>Kiểm tra migration `002_team_skill_map` đã được apply qua Admin Portal và workspace đã enable miniapp.</small>
+        </section>
+      )}
       {tab === 'overview' && (
         <Overview
+          skills={skills}
+          members={members}
           onSearch={() => setTab('search')}
           onReport={() => setTab('report')}
           onProfile={() => setTab('profile')}
@@ -115,7 +155,7 @@ export default function App() {
           selectedSkill={selectedSkill}
           onSelectSkill={(skillId) => {
             setSelectedSkill(skillId);
-            setQuery(SKILLS.find((skill) => skill.id === skillId)?.name || '');
+            setQuery(skills.find((skill) => skill.id === skillId)?.name || '');
             setTab('search');
           }}
         />
@@ -123,6 +163,7 @@ export default function App() {
 
       {tab === 'search' && (
         <SearchScreen
+          skills={skills}
           query={query}
           setQuery={setQuery}
           selected={selected}
@@ -136,20 +177,40 @@ export default function App() {
 
       {tab === 'profile' && (
         <ProfileScreen
+          profileSkillCatalog={skills}
           profileSkills={profileSkills}
-          setProfileSkills={setProfileSkills}
+          onSaveProfileSkill={handleSaveProfileSkill}
+          onDeleteProfileSkill={handleDeleteProfileSkill}
+          saving={saving}
+          currentMember={members.find((member) => member.userId === ctx.userId)}
           onBack={() => setTab('overview')}
         />
       )}
-      {tab === 'report' && <ReportScreen onBack={() => setTab('overview')} />}
+      {tab === 'report' && <ReportScreen skills={skills} onBack={() => setTab('overview')} />}
 
+      <ShareManageModal open={shareOpen} onClose={() => setShareOpen(false)} />
       <BottomNav active={tab} onChange={setTab} />
     </main>
   );
 }
 
-function Overview({ onSearch, onReport, onProfile, onSelectSkill, selectedSkill, profileSkills }) {
-  const topSkills = SKILLS.slice(0, 4);
+function ShellRequired({ error }) {
+  return (
+    <main className="mushy-shell">
+      <section className="shell-required">
+        <img className="mushy-avatar" src="/mushy.png" alt="Mushy" />
+        <div>
+          <h1>Skill Map</h1>
+          <p>Miniapp này cần được mở từ Mushy để nhận token, workspace và quyền truy cập dữ liệu.</p>
+          <small>{error?.message || 'Không tìm thấy APP_CONTEXT'}</small>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function Overview({ skills, members, onSearch, onReport, onProfile, onSelectSkill, selectedSkill, profileSkills }) {
+  const topSkills = skills.slice(0, 4);
   const [overviewSearch, setOverviewSearch] = useState('');
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -158,24 +219,24 @@ function Overview({ onSearch, onReport, onProfile, onSelectSkill, selectedSkill,
   const searchText = overviewSearch.trim();
   const normalizedSearch = normalizeText(searchText);
   const skillMatches = useMemo(() => {
-    if (!normalizedSearch) return SKILLS.slice(0, 5);
-    const matches = SKILLS.filter((skill) => normalizeText(skill.name).includes(normalizedSearch));
-    return matches.length ? matches.slice(0, 5) : SKILLS.slice(0, 5);
-  }, [normalizedSearch]);
+    if (!normalizedSearch) return skills.slice(0, 5);
+    const matches = skills.filter((skill) => normalizeText(skill.name).includes(normalizedSearch));
+    return matches.length ? matches.slice(0, 5) : skills.slice(0, 5);
+  }, [normalizedSearch, skills]);
   const memberMatches = useMemo(() => {
-    if (!normalizedSearch) return MEMBERS.slice(0, 6);
-    const matchedSkillIds = SKILLS
+    if (!normalizedSearch) return members.slice(0, 6);
+    const matchedSkillIds = skills
       .filter((skill) => normalizeText(skill.name).includes(normalizedSearch))
       .map((skill) => skill.id);
-    return MEMBERS.filter((member) => {
+    return members.filter((member) => {
       const memberText = normalizeText(`${member.name} ${member.handle}`);
       const matchesMember = memberText.includes(normalizedSearch);
       const matchesSkill = matchedSkillIds.some((skillId) => (member.skills[skillId] || 0) > 0);
       return matchesMember || matchesSkill;
     });
-  }, [normalizedSearch]);
+  }, [members, normalizedSearch, skills]);
   const heatSkills = heatMode === 'risk'
-    ? SKILLS.filter((skill) => skill.risk).slice(0, 5)
+    ? skills.filter((skill) => skill.risk).slice(0, 5)
     : skillMatches;
   const heatMembers = memberMatches.slice(0, 6);
   const searchMode = normalizedSearch
@@ -183,7 +244,7 @@ function Overview({ onSearch, onReport, onProfile, onSelectSkill, selectedSkill,
     : heatMode === 'risk'
       ? 'Hiển thị kỹ năng cần bổ sung'
       : 'Hiển thị top kỹ năng';
-  const profileSkillMap = new Map(PROFILE_SKILL_CATALOG.map((skill) => [skill.id, skill]));
+  const profileSkillMap = new Map(skills.map((skill) => [skill.id, skill]));
   const learningCount = profileSkills.filter((skill) => skill.level <= 2).length;
   const featuredProfileSkills = profileSkills.slice(0, 4).map((skill) => profileSkillMap.get(skill.id)?.name || skill.id);
 
@@ -377,7 +438,7 @@ function Overview({ onSearch, onReport, onProfile, onSelectSkill, selectedSkill,
               <button key={skill.id} className="popular-card" type="button" onClick={() => onSelectSkill(skill.id)}>
                 <span>{skill.icon}</span>
                 <strong>{skill.name}</strong>
-                <small>{skill.total}/7 người</small>
+                <small>{skill.total}/{Math.max(members.length, 1)} người</small>
                 <i style={{ '--fill': `${Math.max(12, skill.total * 14)}%` }} />
               </button>
             ))}
@@ -403,6 +464,8 @@ function Overview({ onSearch, onReport, onProfile, onSelectSkill, selectedSkill,
       </div>
 
       <DesktopCompanion
+        skills={skills}
+        members={members}
         selectedSkill={selectedSkill}
         profileSkills={profileSkills}
         onSearch={onSearch}
@@ -414,12 +477,12 @@ function Overview({ onSearch, onReport, onProfile, onSelectSkill, selectedSkill,
   );
 }
 
-function DesktopCompanion({ selectedSkill, profileSkills, onSearch, onReport, onProfile, onSelectSkill }) {
-  const selected = SKILLS.find((skill) => skill.id === selectedSkill) || SKILLS[2];
-  const profileSkillMap = new Map(PROFILE_SKILL_CATALOG.map((skill) => [skill.id, skill]));
+function DesktopCompanion({ skills, members, selectedSkill, profileSkills, onSearch, onReport, onProfile, onSelectSkill }) {
+  const selected = skills.find((skill) => skill.id === selectedSkill) || skills[0] || INITIAL_SKILLS[0];
+  const profileSkillMap = new Map(skills.map((skill) => [skill.id, skill]));
   const learningCount = profileSkills.filter((skill) => skill.level <= 2).length;
   const featuredProfileSkills = profileSkills.slice(0, 4).map((skill) => profileSkillMap.get(skill.id)?.name || skill.id);
-  const topMembers = MEMBERS
+  const topMembers = members
     .map((member) => ({
       ...member,
       level: member.skills[selected.id] || 0,
@@ -483,7 +546,7 @@ function DesktopCompanion({ selectedSkill, profileSkills, onSearch, onReport, on
   );
 }
 
-function SearchScreen({ query, setQuery, selected, selectedSkill, setSelectedSkill, rows, onBack, onShowHeatmap }) {
+function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSelectedSkill, rows, onBack, onShowHeatmap }) {
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const selectedMember = rows.find((member) => member.id === selectedMemberId) || null;
 
@@ -499,7 +562,7 @@ function SearchScreen({ query, setQuery, selected, selectedSkill, setSelectedSki
       <div className="result-head">
         <strong>Kết quả ({rows.length})</strong>
         <div className="skill-chip-row" role="listbox" aria-label="Chọn kỹ năng">
-          {SKILLS.slice(0, 5).map((skill) => (
+          {skills.slice(0, 5).map((skill) => (
             <button
               key={skill.id}
               type="button"
@@ -576,18 +639,28 @@ function MemberResult({ member, active, onSelect }) {
   );
 }
 
-function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
+function ProfileScreen({
+  profileSkillCatalog,
+  profileSkills,
+  onSaveProfileSkill,
+  onDeleteProfileSkill,
+  saving,
+  currentMember,
+  onBack,
+}) {
   const [draft, setDraft] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const skillMap = new Map(PROFILE_SKILL_CATALOG.map((skill) => [skill.id, skill]));
-  const availableSkills = PROFILE_SKILL_CATALOG.filter(
-    (skill) => !profileSkills.some((profileSkill) => profileSkill.id === skill.id),
+  const [error, setError] = useState(null);
+  const skillMap = new Map(profileSkillCatalog.map((skill) => [skill.id, skill]));
+  const availableSkills = profileSkillCatalog.filter(
+    (skill) => skill.skillId && !profileSkills.some((profileSkill) => profileSkill.id === skill.id),
   );
   const learningCount = profileSkills.filter((skill) => skill.level <= 2).length;
 
   function openAddForm() {
-    const firstSkill = availableSkills[0] || PROFILE_SKILL_CATALOG[0];
+    const firstSkill = availableSkills[0] || profileSkillCatalog[0];
+    if (!firstSkill) return;
     setDraft({
       mode: 'add',
       skillId: firstSkill.id,
@@ -607,26 +680,15 @@ function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
     });
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!draft) return;
-    if (draft.mode === 'edit') {
-      setProfileSkills((current) => current.map((skill) => (
-        skill.id === draft.skillId
-          ? { ...skill, level: Number(draft.level), interest: Number(draft.interest), note: draft.note.trim() }
-          : skill
-      )));
-    } else if (!profileSkills.some((skill) => skill.id === draft.skillId)) {
-      setProfileSkills((current) => [
-        ...current,
-        {
-          id: draft.skillId,
-          level: Number(draft.level),
-          interest: Number(draft.interest),
-          note: draft.note.trim(),
-        },
-      ]);
+    setError(null);
+    try {
+      await onSaveProfileSkill(draft);
+      setDraft(null);
+    } catch (saveError) {
+      setError(saveError);
     }
-    setDraft(null);
   }
 
   function requestRemoveSkill(skillId) {
@@ -637,12 +699,17 @@ function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
     setPendingDeleteId(null);
   }
 
-  function confirmRemoveSkill() {
+  async function confirmRemoveSkill() {
     if (!pendingDeleteId) return;
     const skillId = pendingDeleteId;
-    setProfileSkills((current) => current.filter((skill) => skill.id !== skillId));
-    setDraft((current) => (current?.skillId === skillId ? null : current));
-    setPendingDeleteId(null);
+    setError(null);
+    try {
+      await onDeleteProfileSkill(skillId);
+      setDraft((current) => (current?.skillId === skillId ? null : current));
+      setPendingDeleteId(null);
+    } catch (deleteError) {
+      setError(deleteError);
+    }
   }
 
   const pendingDeleteSkill = pendingDeleteId ? skillMap.get(pendingDeleteId) : null;
@@ -657,24 +724,31 @@ function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
         </section>
       )}
       <section className="profile-card">
-        <span className="profile-face">🐱</span>
+        <span className="profile-face">{currentMember?.avatar || '?'}</span>
         <div>
-          <h2>Nguyễn Hà My</h2>
-          <p>@hamy · {profileSkills.length} kỹ năng · {learningCount} đang học</p>
+          <h2>{currentMember?.name || 'Hồ sơ của bạn'}</h2>
+          <p>{currentMember?.handle || '@me'} · {profileSkills.length} kỹ năng · {learningCount} đang học</p>
         </div>
-        <button type="button" onClick={openAddForm} aria-label="Thêm kỹ năng">＋</button>
+        <button type="button" onClick={openAddForm} aria-label="Thêm kỹ năng" disabled={!availableSkills.length || saving}>＋</button>
       </section>
+
+      {error && (
+        <section className="data-error" role="alert">
+          <strong>Không lưu được hồ sơ</strong>
+          <p>{error.message}</p>
+        </section>
+      )}
 
       <div className="profile-head">
         <strong>Kỹ năng của bạn ({profileSkills.length})</strong>
-        <button type="button" onClick={openAddForm}>+ Thêm kỹ năng</button>
+        <button type="button" onClick={openAddForm} disabled={!availableSkills.length || saving}>+ Thêm kỹ năng</button>
       </div>
 
       {draft && (
         <section className="skill-form" aria-label={draft.mode === 'edit' ? 'Sửa kỹ năng' : 'Thêm kỹ năng'}>
           <div className="skill-form-head">
             <strong>{draft.mode === 'edit' ? 'Sửa kỹ năng' : 'Thêm kỹ năng mới'}</strong>
-            <button type="button" onClick={() => setDraft(null)}>Đóng</button>
+              <button type="button" onClick={() => setDraft(null)} disabled={saving}>Đóng</button>
           </div>
 
           <div className="skill-picker" role="listbox" aria-label="Chọn kỹ năng">
@@ -729,8 +803,8 @@ function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
           </label>
 
           <div className="form-actions-inline">
-            <button type="button" onClick={() => setDraft(null)}>Hủy</button>
-            <button type="button" onClick={saveDraft}>Lưu kỹ năng</button>
+            <button type="button" onClick={() => setDraft(null)} disabled={saving}>Hủy</button>
+            <button type="button" onClick={saveDraft} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu kỹ năng'}</button>
           </div>
         </section>
       )}
@@ -747,8 +821,8 @@ function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
             <p id="delete-confirm-body">Hanh dong nay se xoa ky nang khoi ho so cua ban. Ban co the them lai sau neu can.</p>
           </div>
           <div className="delete-confirm-actions">
-            <button type="button" onClick={cancelRemoveSkill}>Huy</button>
-            <button type="button" onClick={confirmRemoveSkill}>Xoa ky nang</button>
+            <button type="button" onClick={cancelRemoveSkill} disabled={saving}>Huy</button>
+            <button type="button" onClick={confirmRemoveSkill} disabled={saving}>{saving ? 'Dang xoa...' : 'Xoa ky nang'}</button>
           </div>
         </section>
       )}
@@ -756,6 +830,7 @@ function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
       <div className="profile-skills">
         {profileSkills.map(({ id, level, interest, note }) => {
           const skill = skillMap.get(id);
+          if (!skill) return null;
           return (
             <article className="profile-skill" key={id}>
               <span>{skill.icon}</span>
@@ -766,21 +841,28 @@ function ProfileScreen({ profileSkills, setProfileSkills, onBack }) {
                 {note && <p>{note}</p>}
               </div>
               <b>Quan tâm {interest}</b>
-              <button type="button" onClick={() => openEditForm({ id, level, interest, note })} aria-label={`Sửa ${skill.name}`}>✎</button>
-              <button type="button" onClick={() => requestRemoveSkill(id)} aria-label={`Xóa ${skill.name}`}>🗑</button>
+              <button type="button" onClick={() => openEditForm({ id, level, interest, note })} aria-label={`Sửa ${skill.name}`} disabled={saving}>✎</button>
+              <button type="button" onClick={() => requestRemoveSkill(id)} aria-label={`Xóa ${skill.name}`} disabled={saving}>🗑</button>
             </article>
           );
         })}
       </div>
 
-      <button className="add-more" type="button" onClick={openAddForm}>＋ Thêm kỹ năng khác</button>
+      {profileSkills.length === 0 && (
+        <section className="empty-panel">
+          <strong>Chưa có kỹ năng cá nhân</strong>
+          <p>Thêm kỹ năng đầu tiên để team thấy năng lực và mức độ quan tâm của bạn.</p>
+        </section>
+      )}
+
+      <button className="add-more" type="button" onClick={openAddForm} disabled={!availableSkills.length || saving}>＋ Thêm kỹ năng khác</button>
     </div>
   );
 }
 
-function ReportScreen({ onBack }) {
+function ReportScreen({ skills, onBack }) {
   const [fullOpen, setFullOpen] = useState(false);
-  const risks = SKILLS.filter((skill) => skill.risk);
+  const risks = skills.filter((skill) => skill.risk);
   return (
     <div className="screen compact-screen">
       <TopBar title="Kỹ năng cần bổ sung" onBack={onBack} />

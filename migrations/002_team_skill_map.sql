@@ -1,6 +1,6 @@
 -- Team Skill Map MVP tables.
 -- Submit this SQL through the Mushy Admin Portal Migration Reviewer.
--- Reviewer will duplicate app_skill_map to app_skill_map_dev automatically.
+-- Only reference app_skill_map here; the Reviewer duplicates it for dev automatically.
 
 create table if not exists app_skill_map.skills (
   id uuid primary key default gen_random_uuid(),
@@ -27,6 +27,27 @@ create table if not exists app_skill_map.member_skills (
   updated_at timestamptz not null default now(),
   constraint member_skills_user_skill_unique unique (workspace_id, user_id, skill_id)
 );
+
+alter table app_skill_map.skills
+  add column if not exists category text not null default 'Custom' check (char_length(category) between 1 and 40);
+
+alter table app_skill_map.skills
+  add column if not exists is_preset boolean not null default false;
+
+alter table app_skill_map.skills
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table app_skill_map.member_skills
+  add column if not exists level integer not null default 0 check (level between 0 and 4);
+
+alter table app_skill_map.member_skills
+  add column if not exists interest integer not null default 0 check (interest between 0 and 3);
+
+alter table app_skill_map.member_skills
+  add column if not exists note text not null default '' check (char_length(note) <= 500);
+
+alter table app_skill_map.member_skills
+  add column if not exists updated_at timestamptz not null default now();
 
 create index if not exists idx_skills_workspace on app_skill_map.skills (workspace_id);
 create index if not exists idx_skills_workspace_category on app_skill_map.skills (workspace_id, category);
@@ -93,12 +114,14 @@ for delete using (
   public.is_owner_workspace_member(workspace_id)
 );
 
-create or replace function app_skill_map.set_updated_at() returns trigger as $$
+create or replace function app_skill_map.set_updated_at() returns trigger
+language plpgsql
+as '
 begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+';
 
 drop trigger if exists trg_skills_updated_at on app_skill_map.skills;
 create trigger trg_skills_updated_at

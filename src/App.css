@@ -45,6 +45,88 @@ button {
   gap: 16px;
 }
 
+.integration-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+
+.integration-strip > button {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--mushy-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--mushy-red-dark);
+  font-weight: 900;
+}
+
+.data-error,
+.empty-panel,
+.shell-required {
+  border: 1px solid rgba(239, 47, 82, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--mushy-shadow);
+}
+
+.data-error,
+.empty-panel {
+  padding: 14px;
+}
+
+.data-error {
+  margin-bottom: 14px;
+  background: #fff7f8;
+}
+
+.data-error strong,
+.empty-panel strong {
+  display: block;
+}
+
+.data-error p,
+.data-error small,
+.empty-panel p {
+  margin: 6px 0 0;
+  color: var(--mushy-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.shell-required {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  margin-top: 18vh;
+  padding: 18px;
+}
+
+.shell-required h1,
+.shell-required p {
+  margin: 0;
+}
+
+.shell-required h1 {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.shell-required p {
+  margin-top: 8px;
+  color: var(--mushy-muted);
+  line-height: 1.4;
+}
+
+.shell-required small {
+  display: block;
+  margin-top: 10px;
+  color: #9c6973;
+}
+
 .overview-main {
   display: grid;
   gap: 16px;

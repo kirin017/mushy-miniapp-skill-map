@@ -1,0 +1,25 @@
+{
+  "locked": true,
+  "intent": "DELIVER",
+  "target": 7,
+  "target_min": 6,
+  "orchestration_mode": "Local controller",
+  "criteria": [
+    {
+      "name": "data_backed_integration",
+      "description": "Skill and profile state comes from Supabase-backed tables with durable writes."
+    },
+    {
+      "name": "workspace_scope_security",
+      "description": "All DB reads/writes use active workspace scope and existing RLS-compatible patterns."
+    },
+    {
+      "name": "runtime_resilience",
+      "description": "Loading/empty/error states are explicit and do not blank the app."
+    },
+    {
+      "name": "verification",
+      "description": "Automated tests, local build, and browser smoke provide evidence."
+    }
+  ]
+}
