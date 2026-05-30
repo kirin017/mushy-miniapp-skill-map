@@ -2654,6 +2654,56 @@ body::before {
   filter: blur(18px);
 }
 
+.pending-review,
+.pending-profile {
+  display: grid;
+  gap: 12px;
+}
+
+.pending-review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pending-review-list article,
+.pending-profile div {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--taste-line, var(--mushy-line));
+  border-radius: 12px;
+  background: rgba(247, 241, 227, 0.08);
+}
+
+.pending-review-list article > div:last-child {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pending-review-list button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--taste-line, var(--mushy-line));
+  border-radius: 999px;
+  background: var(--taste-paper, #fff);
+  color: #11130f;
+  font-weight: 900;
+}
+
+.pending-profile {
+  padding: 14px;
+  border: 1px solid var(--taste-line, var(--mushy-line));
+  border-radius: 16px;
+  background: rgba(247, 241, 227, 0.08);
+}
+
+.pending-profile strong,
+.pending-profile span,
+.pending-profile small {
+  display: block;
+}
+
 @media (min-width: 900px) {
   .mushy-shell {
     padding: 22px 24px 58px;
@@ -2677,7 +2727,8 @@ body::before {
   .search-row,
   .filter-panel,
   .popular-panel,
-  .motion-lab {
+  .motion-lab,
+  .pending-review {
     grid-column: 1 / -1;
   }
 

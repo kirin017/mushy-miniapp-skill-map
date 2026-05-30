@@ -8,12 +8,15 @@ import ShareManageModal from './components/ShareManageModal.jsx';
 import { getContext } from './lib/context.js';
 import { db } from './lib/supabase.js';
 import { listMembers } from './lib/members.js';
-import { useActiveScope, useDefaultScopeInitializer } from './lib/sharing.js';
+import { useActiveScope, useDefaultScopeInitializer, useIsCurrentWorkspaceAdmin } from './lib/sharing.js';
 import {
   PRESET_SKILLS,
+  approvePendingSkill,
   buildProfileSummary,
   deleteProfileSkill,
   loadSkillMapData,
+  mergePendingSkill,
+  rejectPendingSkill,
   saveProfileSkill,
 } from './lib/app/skill-map-data.js';
 
@@ -44,6 +47,7 @@ function SkillMapApp({ ctx }) {
   const shellRef = useRef(null);
   useDefaultScopeInitializer();
   const activeScope = useActiveScope();
+  const isWorkspaceAdmin = useIsCurrentWorkspaceAdmin(activeScope.workspaceId);
   const [tab, setTab] = useState('overview');
   const [query, setQuery] = useState('Docker');
   const [selectedSkill, setSelectedSkill] = useState('docker');
@@ -201,6 +205,62 @@ function SkillMapApp({ ctx }) {
     }
   }
 
+  async function handleApprovePendingSkill(skillId) {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      await approvePendingSkill({
+        db,
+        workspaceId: activeScope.workspaceId,
+        reviewerId: ctx.userId,
+        skillId,
+      });
+      await reload();
+    } catch (error) {
+      setLoadError(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleMergePendingSkill(fromSkillId, toSkillId) {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      await mergePendingSkill({
+        db,
+        workspaceId: activeScope.workspaceId,
+        reviewerId: ctx.userId,
+        fromSkillId,
+        toSkillId,
+      });
+      await reload();
+    } catch (error) {
+      setLoadError(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRejectPendingSkill(skillId) {
+    setSaving(true);
+    setLoadError(null);
+    try {
+      await rejectPendingSkill({
+        db,
+        workspaceId: activeScope.workspaceId,
+        reviewerId: ctx.userId,
+        skillId,
+        note: 'Rejected from Skill Map review queue',
+      });
+      await reload();
+    } catch (error) {
+      setLoadError(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <main className="mushy-shell" ref={shellRef}>
       <div className="integration-strip">
@@ -223,6 +283,11 @@ function SkillMapApp({ ctx }) {
           onReport={() => setTab('report')}
           onProfile={() => setTab('profile')}
           profileSkills={profileSkills}
+          isWorkspaceAdmin={isWorkspaceAdmin}
+          saving={saving}
+          onApprovePendingSkill={handleApprovePendingSkill}
+          onMergePendingSkill={handleMergePendingSkill}
+          onRejectPendingSkill={handleRejectPendingSkill}
           selectedSkill={selectedSkill}
           onSelectSkill={(skillId) => {
             setSelectedSkill(skillId);
@@ -300,7 +365,22 @@ function SkillIcon({ skill, className = '', compact = false }) {
   );
 }
 
-function Overview({ skills, members, currentMember, onSearch, onReport, onProfile, onSelectSkill, selectedSkill, profileSkills }) {
+function Overview({
+  skills,
+  members,
+  currentMember,
+  onSearch,
+  onReport,
+  onProfile,
+  onSelectSkill,
+  selectedSkill,
+  profileSkills,
+  isWorkspaceAdmin,
+  saving,
+  onApprovePendingSkill,
+  onMergePendingSkill,
+  onRejectPendingSkill,
+}) {
   const topSkills = skills.slice(0, 4);
   const [overviewSearch, setOverviewSearch] = useState('');
   const [noticeOpen, setNoticeOpen] = useState(false);
@@ -336,6 +416,12 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
       ? 'Hiển thị kỹ năng cần bổ sung'
       : 'Hiển thị top kỹ năng';
   const profileSummary = buildProfileSummary({ currentMember, profileSkills, skills });
+  const pendingSkills = uniqueBy(
+    members.flatMap((member) => (
+      member.pendingSkills || []
+    ).map((skill) => ({ ...skill, memberName: member.name }))),
+    (skill) => skill.skillId,
+  );
 
   return (
     <div className="screen screen--overview">
@@ -581,6 +667,17 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
             {profileSummary.featuredSkills.map((skill) => <b key={skill}>{skill}</b>)}
           </div>
         </section>
+
+        {isWorkspaceAdmin && pendingSkills.length > 0 && (
+          <PendingSkillReview
+            pendingSkills={pendingSkills}
+            approvedSkills={skills}
+            saving={saving}
+            onApprove={onApprovePendingSkill}
+            onMerge={onMergePendingSkill}
+            onReject={onRejectPendingSkill}
+          />
+        )}
       </div>
 
       <DesktopCompanion
@@ -595,6 +692,39 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
         onSelectSkill={onSelectSkill}
       />
     </div>
+  );
+}
+
+function PendingSkillReview({ pendingSkills, approvedSkills, saving, onApprove, onMerge, onReject }) {
+  const firstApproved = approvedSkills.find((skill) => skill.skillId);
+  return (
+    <section className="panel pending-review" data-gsap="fade-up">
+      <div className="panel-head">
+        <div>
+          <h2>Đang chờ duyệt</h2>
+          <small>{pendingSkills.length} skill cần chuẩn hóa</small>
+        </div>
+      </div>
+      <div className="pending-review-list">
+        {pendingSkills.map((skill) => (
+          <article key={skill.skillId}>
+            <div>
+              <strong>{skill.name}</strong>
+              <small>{skill.category} · từ {skill.memberName}</small>
+            </div>
+            <div>
+              <button type="button" onClick={() => onApprove(skill.skillId)} disabled={saving}>Duyệt</button>
+              {firstApproved && (
+                <button type="button" onClick={() => onMerge(skill.skillId, firstApproved.skillId)} disabled={saving}>
+                  Merge vào {firstApproved.name}
+                </button>
+              )}
+              <button type="button" onClick={() => onReject(skill.skillId)} disabled={saving}>Từ chối</button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -781,6 +911,7 @@ function ProfileScreen({
     profileSkills,
     skills: profileSkillCatalog,
   });
+  const pendingProfileSkills = currentMember?.pendingSkills || [];
   const canSaveDraft = draft
     ? !saving && (draft.customSkill ? draft.skillName.trim().length > 0 : !!(draft.memberSkillId || draft.memberSkillIds?.length || draft.skillId))
     : false;
@@ -980,6 +1111,18 @@ function ProfileScreen({
         </section>
       )}
 
+      {pendingProfileSkills.length > 0 && (
+        <section className="pending-profile">
+          <strong>Đang chờ duyệt</strong>
+          {pendingProfileSkills.map((skill) => (
+            <div key={skill.skillId}>
+              <span>{skill.name}</span>
+              <small>{skill.category} · Level {skill.level}</small>
+            </div>
+          ))}
+        </section>
+      )}
+
       {pendingDeleteSkill && (
         <section
           className="delete-confirm"
@@ -1102,6 +1245,16 @@ function normalizeText(value) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd');
+}
+
+function uniqueBy(items, keyFn) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = keyFn(item);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function BottomNav({ active, onChange }) {

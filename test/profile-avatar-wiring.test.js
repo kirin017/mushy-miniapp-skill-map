@@ -45,3 +45,14 @@ test('ProfileScreen sends persisted member skill row ids for profile edit and de
   assert.match(profileScreenSource, /onDeleteProfileSkill\(profileSkill\)/);
   assert.match(profileScreenSource, /pendingDeleteProfileSkill/);
 });
+
+test('App exposes pending skill review UI and pending profile section', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+
+  assert.match(source, /function PendingSkillReview/);
+  assert.match(source, /pendingProfileSkills/);
+  assert.match(source, /approvePendingSkill/);
+  assert.match(source, /mergePendingSkill/);
+  assert.match(source, /rejectPendingSkill/);
+  assert.match(source, /useIsCurrentWorkspaceAdmin/);
+});
