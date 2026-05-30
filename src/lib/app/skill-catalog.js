@@ -506,6 +506,126 @@ export function normalizeSkillName(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+const AMBIGUOUS_SKILL_NAMES = new Set(['cloud', 'backend', 'automation', 'ai']);
+
+const SAFE_FUZZY_SKILL_KEYS = new Map([
+  ['cicd', 'devops.ci_cd'],
+  ['continuousintegrationcontinuousdelivery', 'devops.ci_cd'],
+  ['postgres', 'data.postgresql'],
+  ['reactjs', 'frontend.react'],
+]);
+
+const LEGACY_KEY_OVERRIDES = new Map([['devops-cicd', 'devops.ci_cd']]);
+
+function pendingSkillMatch(reason) {
+  return {
+    status: 'pending',
+    key: null,
+    confidence: 0,
+    reason,
+  };
+}
+
+function legacyCatalogKey(key) {
+  if (LEGACY_KEY_OVERRIDES.has(key)) {
+    return LEGACY_KEY_OVERRIDES.get(key);
+  }
+
+  const [namespace, ...parts] = String(key ?? '').split('-');
+
+  if (!namespace || parts.length === 0) {
+    return String(key ?? '');
+  }
+
+  return `${namespace}.${parts.join('_')}`;
+}
+
+function labelIndex(catalog) {
+  const labels = new Map();
+
+  for (const skill of catalog) {
+    const key = legacyCatalogKey(skill.key);
+
+    for (const label of [skill.name, ...(skill.aliases ?? [])]) {
+      labels.set(normalizeSkillName(label), key);
+    }
+  }
+
+  return labels;
+}
+
+function exactLabelIndex(catalog) {
+  const labels = new Map();
+
+  for (const skill of catalog) {
+    const key = legacyCatalogKey(skill.key);
+
+    for (const label of [skill.name, ...(skill.aliases ?? [])]) {
+      labels.set(String(label ?? '').trim().toLowerCase(), key);
+    }
+  }
+
+  return labels;
+}
+
+export function catalogByKey(catalog = STANDARD_SKILLS) {
+  const skills = new Map();
+
+  for (const skill of catalog) {
+    skills.set(legacyCatalogKey(skill.key), skill);
+  }
+
+  return skills;
+}
+
+export function matchCatalogSkill(value, catalog = STANDARD_SKILLS) {
+  const normalized = normalizeSkillName(value);
+  const exactLabel = String(value ?? '').trim().toLowerCase();
+
+  if (!normalized) {
+    return pendingSkillMatch('no_match');
+  }
+
+  if (AMBIGUOUS_SKILL_NAMES.has(normalized)) {
+    return pendingSkillMatch('ambiguous');
+  }
+
+  const exactMatchedKey = exactLabelIndex(catalog).get(exactLabel);
+
+  if (exactMatchedKey) {
+    return {
+      status: 'matched',
+      key: exactMatchedKey,
+      confidence: 1,
+      reason: 'alias',
+    };
+  }
+
+  const safeFuzzyKey = SAFE_FUZZY_SKILL_KEYS.get(normalized);
+
+  if (safeFuzzyKey && catalogByKey(catalog).has(safeFuzzyKey)) {
+    return {
+      status: 'matched',
+      key: safeFuzzyKey,
+      confidence: 0.94,
+      reason: 'safe_fuzzy',
+    };
+  }
+
+  const matchedKey = labelIndex(catalog).get(normalized);
+
+  if (matchedKey) {
+    return {
+      status: 'matched',
+      key: matchedKey,
+      confidence: 1,
+      reason: 'alias',
+    };
+  }
+
+  return pendingSkillMatch('no_match');
+}
+
 export function validateStandardCatalog(catalog = STANDARD_SKILLS) {
   const errors = [];
   const keys = new Set();

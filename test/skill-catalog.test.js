@@ -5,6 +5,7 @@ import {
   CATALOG_CATEGORIES,
   CATALOG_SKILL_TYPES,
   STANDARD_SKILLS,
+  matchCatalogSkill,
   normalizeSkillName,
   validateStandardCatalog,
 } from '../src/lib/app/skill-catalog.js';
@@ -44,4 +45,52 @@ test('normalizeSkillName handles accents, separators, and common punctuation', (
   assert.equal(normalizeSkillName('CI / CD'), 'cicd');
   assert.equal(normalizeSkillName('Kiểm thử tự động'), 'kiemthutudong');
   assert.equal(normalizeSkillName('PostgreSQL'), 'postgresql');
+});
+
+test('matchCatalogSkill maps exact and alias names', () => {
+  assert.deepEqual(matchCatalogSkill('React.js'), {
+    status: 'matched',
+    key: 'frontend.react',
+    confidence: 1,
+    reason: 'alias',
+  });
+  assert.deepEqual(matchCatalogSkill('Postgres'), {
+    status: 'matched',
+    key: 'data.postgresql',
+    confidence: 1,
+    reason: 'alias',
+  });
+});
+
+test('matchCatalogSkill maps safe fuzzy variants', () => {
+  assert.deepEqual(matchCatalogSkill('CI CD'), {
+    status: 'matched',
+    key: 'devops.ci_cd',
+    confidence: 0.94,
+    reason: 'safe_fuzzy',
+  });
+});
+
+test('matchCatalogSkill sends ambiguous broad terms to pending', () => {
+  assert.deepEqual(matchCatalogSkill('backend'), {
+    status: 'pending',
+    key: null,
+    confidence: 0,
+    reason: 'ambiguous',
+  });
+  assert.deepEqual(matchCatalogSkill('cloud'), {
+    status: 'pending',
+    key: null,
+    confidence: 0,
+    reason: 'ambiguous',
+  });
+});
+
+test('matchCatalogSkill sends unknown skills to pending', () => {
+  assert.deepEqual(matchCatalogSkill('Kafka Streams'), {
+    status: 'pending',
+    key: null,
+    confidence: 0,
+    reason: 'no_match',
+  });
 });
