@@ -501,6 +501,43 @@ test('saveProfileSkill attaches catalog aliases to the approved catalog skill', 
   assert.equal(calls.find((call) => call.op === 'eq' && call.column === 'catalog_key').value, 'data.postgresql');
 });
 
+test('saveProfileSkill attaches catalog aliases before reusing stale pending proposals', async () => {
+  const calls = [];
+  const db = makeSaveProfileSkillDb({
+    calls,
+    existingSkill: {
+      id: 'skill-postgres-pending',
+      name: 'Postgres',
+      category: 'Database/Data',
+      status: 'pending',
+      canonical_skill_id: null,
+    },
+    catalogSkill: {
+      id: 'skill-postgresql',
+      name: 'PostgreSQL',
+      category: 'Database/Data',
+      status: 'approved',
+      canonical_skill_id: null,
+      catalog_key: 'data.postgresql',
+    },
+  });
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    skillName: 'Postgres',
+    category: 'Database/Data',
+    level: 2,
+    interest: 3,
+    note: 'Query tuning',
+  });
+
+  assert.equal(saved.skill_id, 'skill-postgresql');
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'insert'), false);
+  assert.equal(calls.find((call) => call.op === 'eq' && call.column === 'catalog_key').value, 'data.postgresql');
+});
+
 test('saveProfileSkill updates an existing member skill row by row id', async () => {
   const calls = [];
   const db = {

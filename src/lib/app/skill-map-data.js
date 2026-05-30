@@ -365,25 +365,19 @@ async function createCustomSkill({ db, workspaceId, userId, skillName, category,
     .maybeSingle();
   if (selectError) throw new Error('find custom skill: ' + selectError.message);
 
-  const existingSkillId = reusableSkillId(existingSkill);
-  if (existingSkillId) return existingSkillId;
+  if (existingSkill?.status === 'approved' || (existingSkill?.status === 'merged' && existingSkill.canonical_skill_id)) {
+    return reusableSkillId(existingSkill);
+  }
 
   if (existingSkill && existingSkill.status !== 'rejected') {
+    const catalogSkillId = await findReusableCatalogSkillId({ db, workspaceId, name: row.name });
+    if (catalogSkillId) return catalogSkillId;
+    if (existingSkill.status === 'pending') return existingSkill.id;
     throw new Error(`create custom skill: existing skill "${row.name}" cannot be reused`);
   }
 
-  const catalogMatch = matchCatalogSkill(row.name);
-  if (catalogMatch.status === 'matched') {
-    const { data: catalogSkill, error: catalogError } = await db
-      .from('skills')
-      .select('id,name,category,is_preset,status,canonical_skill_id,catalog_key')
-      .eq('workspace_id', workspaceId)
-      .eq('catalog_key', catalogMatch.key)
-      .maybeSingle();
-    if (catalogError) throw new Error('find catalog skill: ' + catalogError.message);
-    const catalogSkillId = reusableSkillId(catalogSkill);
-    if (catalogSkillId) return catalogSkillId;
-  }
+  const catalogSkillId = await findReusableCatalogSkillId({ db, workspaceId, name: row.name });
+  if (catalogSkillId) return catalogSkillId;
 
   const { data, error } = await db
     .from('skills')
@@ -396,6 +390,20 @@ async function createCustomSkill({ db, workspaceId, userId, skillName, category,
   if (error) throw new Error('create custom skill: ' + error.message);
   if (!data?.id) throw new Error('create custom skill: missing id');
   return data.id;
+}
+
+async function findReusableCatalogSkillId({ db, workspaceId, name }) {
+  const catalogMatch = matchCatalogSkill(name);
+  if (catalogMatch.status !== 'matched') return null;
+
+  const { data: catalogSkill, error: catalogError } = await db
+    .from('skills')
+    .select('id,name,category,is_preset,status,canonical_skill_id,catalog_key')
+    .eq('workspace_id', workspaceId)
+    .eq('catalog_key', catalogMatch.key)
+    .maybeSingle();
+  if (catalogError) throw new Error('find catalog skill: ' + catalogError.message);
+  return reusableSkillId(catalogSkill);
 }
 
 function reusableSkillId(skill) {
