@@ -152,6 +152,7 @@ for insert with check (
   or (
     public.can_access_app_data(workspace_id, 'skill-map')
     and source = 'proposal'
+    and created_by = auth.uid()
     and status = 'pending'
     and is_preset = false
     and catalog_key is null
@@ -195,7 +196,7 @@ create policy "member_skills_update" on app_skill_map.member_skills
 for update using (
   public.can_access_app_data(workspace_id, 'skill-map')
   and (
-    user_id = auth.uid()
+    (user_id = auth.uid() and created_by = auth.uid())
     or exists (
       select 1
       from public.workspace_members wm
@@ -207,7 +208,7 @@ for update using (
 ) with check (
   public.can_access_app_data(workspace_id, 'skill-map')
   and (
-    user_id = auth.uid()
+    (user_id = auth.uid() and created_by = auth.uid())
     or exists (
       select 1
       from public.workspace_members wm

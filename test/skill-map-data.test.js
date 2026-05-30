@@ -186,6 +186,7 @@ test('skill map migration includes catalog review metadata', () => {
   const skillsUpdatePolicy = sql.match(/create policy "skills_update"[\s\S]*?drop policy if exists "skills_delete"/)?.[0] ?? '';
   const memberSkillsInsertPolicy = sql.match(/create policy "member_skills_insert"[\s\S]*?drop policy if exists "member_skills_update"/)?.[0] ?? '';
   const memberSkillsUpdatePolicy = sql.match(/create policy "member_skills_update"[\s\S]*?drop policy if exists "member_skills_delete"/)?.[0] ?? '';
+  const skillsProposalInsertBranch = skillsInsertPolicy.match(/public\.can_access_app_data\(workspace_id, 'skill-map'\)[\s\S]*?review_note = ''/)?.[0] ?? '';
 
   assert.match(sql, /catalog_key text/);
   assert.match(sql, /status text not null default 'approved'/);
@@ -212,6 +213,7 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(skillsInsertPolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
   assert.match(skillsInsertPolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
   assert.match(skillsInsertPolicy, /source = 'proposal'/);
+  assert.match(skillsProposalInsertBranch, /created_by = auth\.uid\(\)/);
   assert.match(skillsInsertPolicy, /status = 'pending'/);
   assert.match(skillsInsertPolicy, /is_preset = false/);
   assert.match(skillsInsertPolicy, /catalog_key is null/);
@@ -225,6 +227,7 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(memberSkillsInsertPolicy, /created_by = auth\.uid\(\)/);
   assert.match(memberSkillsUpdatePolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
   assert.match(memberSkillsUpdatePolicy, /user_id = auth\.uid\(\)/);
+  assert.match(memberSkillsUpdatePolicy, /user_id = auth\.uid\(\)\s*and created_by = auth\.uid\(\)/);
   assert.match(memberSkillsUpdatePolicy, /from public\.workspace_members wm/);
   assert.match(memberSkillsUpdatePolicy, /wm\.workspace_id = member_skills\.workspace_id/);
   assert.match(memberSkillsUpdatePolicy, /wm\.user_id = auth\.uid\(\)/);
