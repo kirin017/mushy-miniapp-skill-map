@@ -14,7 +14,7 @@ export const CATALOG_SKILL_TYPES = ['capability', 'tool'];
 
 export const STANDARD_SKILLS = [
   {
-    key: 'frontend-react',
+    key: 'frontend.react',
     name: 'React.js',
     aliases: ['React UI', 'React Components'],
     category: 'Frontend',
@@ -22,7 +22,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'frontend-vue',
+    key: 'frontend.vue',
     name: 'Vue.js',
     aliases: ['Vue UI', 'Vue Components'],
     category: 'Frontend',
@@ -30,7 +30,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'frontend-angular',
+    key: 'frontend.angular',
     name: 'Angular',
     aliases: ['Angular Framework', 'Angular SPA'],
     category: 'Frontend',
@@ -38,7 +38,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'frontend-nextjs',
+    key: 'frontend.nextjs',
     name: 'Next.js',
     aliases: ['Next App Router', 'Next Framework'],
     category: 'Frontend',
@@ -46,7 +46,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'frontend-typescript',
+    key: 'frontend.typescript',
     name: 'TypeScript',
     aliases: ['TS Language', 'Typed JavaScript'],
     category: 'Frontend',
@@ -54,7 +54,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'frontend-tailwind',
+    key: 'frontend.tailwind',
     name: 'Tailwind CSS',
     aliases: ['Utility CSS', 'Tailwind Styling'],
     category: 'Frontend',
@@ -62,7 +62,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'frontend-accessibility',
+    key: 'frontend.accessibility',
     name: 'Web Accessibility',
     aliases: ['A11y', 'Inclusive UI'],
     category: 'Frontend',
@@ -70,7 +70,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'frontend-state-management',
+    key: 'frontend.state_management',
     name: 'State Management',
     aliases: ['Client State', 'Frontend Stores'],
     category: 'Frontend',
@@ -78,7 +78,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-nodejs',
+    key: 'backend.nodejs',
     name: 'Node.js',
     aliases: ['Node Runtime', 'Server JavaScript'],
     category: 'Backend',
@@ -86,7 +86,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-express',
+    key: 'backend.express',
     name: 'Express.js',
     aliases: ['Express API', 'Express Server'],
     category: 'Backend',
@@ -94,7 +94,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-nestjs',
+    key: 'backend.nestjs',
     name: 'NestJS',
     aliases: ['Nest Framework', 'Nest API'],
     category: 'Backend',
@@ -102,7 +102,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-python',
+    key: 'backend.python',
     name: 'Python Backend',
     aliases: ['Python Services', 'Python APIs'],
     category: 'Backend',
@@ -110,7 +110,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-django',
+    key: 'backend.django',
     name: 'Django',
     aliases: ['Django Framework', 'Django Web'],
     category: 'Backend',
@@ -118,7 +118,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-fastapi',
+    key: 'backend.fastapi',
     name: 'FastAPI',
     aliases: ['FastAPI Services', 'FastAPI Server'],
     category: 'Backend',
@@ -126,7 +126,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-rest-api',
+    key: 'backend.rest_api',
     name: 'REST API Design',
     aliases: ['RESTful APIs', 'HTTP API Design'],
     category: 'Backend',
@@ -134,7 +134,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'backend-graphql',
+    key: 'backend.graphql',
     name: 'GraphQL',
     aliases: ['GraphQL API', 'GraphQL Schema'],
     category: 'Backend',
@@ -142,7 +142,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-postgresql',
+    key: 'data.postgresql',
     name: 'PostgreSQL',
     aliases: ['Postgres', 'Postgres DB'],
     category: 'Database/Data',
@@ -150,7 +150,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-mysql',
+    key: 'data.mysql',
     name: 'MySQL',
     aliases: ['MySQL DB', 'MySQL Database'],
     category: 'Database/Data',
@@ -158,7 +158,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-mongodb',
+    key: 'data.mongodb',
     name: 'MongoDB',
     aliases: ['Document Database', 'Mongo Store'],
     category: 'Database/Data',
@@ -166,7 +166,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-redis',
+    key: 'data.redis',
     name: 'Redis',
     aliases: ['Redis Cache', 'Key Value Store'],
     category: 'Database/Data',
@@ -174,7 +174,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-sql',
+    key: 'data.sql',
     name: 'SQL',
     aliases: ['SQL Queries', 'Relational Queries'],
     category: 'Database/Data',
@@ -182,7 +182,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-modeling',
+    key: 'data.modeling',
     name: 'Data Modeling',
     aliases: ['Schema Design', 'Entity Modeling'],
     category: 'Database/Data',
@@ -190,7 +190,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-analytics',
+    key: 'data.analytics',
     name: 'Data Analytics',
     aliases: ['Product Analytics', 'Analytics Reporting'],
     category: 'Database/Data',
@@ -198,7 +198,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'data-etl',
+    key: 'data.etl',
     name: 'ETL Pipelines',
     aliases: ['Data Pipelines', 'ELT Workflows'],
     category: 'Database/Data',
@@ -206,7 +206,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'aiml-prompt-engineering',
+    key: 'aiml.prompt_engineering',
     name: 'Prompt Engineering',
     aliases: ['Prompt Design', 'LLM Prompting'],
     category: 'AI/ML',
@@ -214,7 +214,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'aiml-llm-integration',
+    key: 'aiml.llm_integration',
     name: 'LLM Integration',
     aliases: ['AI Integration', 'Model API Integration'],
     category: 'AI/ML',
@@ -222,7 +222,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'aiml-rag',
+    key: 'aiml.rag',
     name: 'RAG',
     aliases: ['Retrieval Augmented Generation', 'Knowledge Retrieval'],
     category: 'AI/ML',
@@ -230,7 +230,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'aiml-embeddings',
+    key: 'aiml.embeddings',
     name: 'Embeddings',
     aliases: ['Vector Embeddings', 'Semantic Vectors'],
     category: 'AI/ML',
@@ -238,7 +238,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'aiml-vector-databases',
+    key: 'aiml.vector_databases',
     name: 'Vector Databases',
     aliases: ['Vector Search', 'Semantic Search'],
     category: 'AI/ML',
@@ -246,7 +246,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'aiml-machine-learning',
+    key: 'aiml.machine_learning',
     name: 'Machine Learning',
     aliases: ['ML Models', 'Predictive Models'],
     category: 'AI/ML',
@@ -254,7 +254,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'mobile-react-native',
+    key: 'mobile.react_native',
     name: 'React Native',
     aliases: ['RN Mobile', 'React Native Apps'],
     category: 'Mobile',
@@ -262,7 +262,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'mobile-flutter',
+    key: 'mobile.flutter',
     name: 'Flutter',
     aliases: ['Flutter Apps', 'Dart Mobile'],
     category: 'Mobile',
@@ -270,7 +270,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'mobile-ios',
+    key: 'mobile.ios',
     name: 'iOS Development',
     aliases: ['Swift Apps', 'Apple Mobile'],
     category: 'Mobile',
@@ -278,7 +278,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'mobile-android',
+    key: 'mobile.android',
     name: 'Android Development',
     aliases: ['Kotlin Apps', 'Android Apps'],
     category: 'Mobile',
@@ -286,7 +286,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'mobile-pwa',
+    key: 'mobile.pwa',
     name: 'Progressive Web Apps',
     aliases: ['PWA', 'Offline Web Apps'],
     category: 'Mobile',
@@ -294,7 +294,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-docker',
+    key: 'devops.docker',
     name: 'Docker',
     aliases: ['Containers', 'Dockerfiles'],
     category: 'DevOps/Cloud',
@@ -302,7 +302,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-kubernetes',
+    key: 'devops.kubernetes',
     name: 'Kubernetes',
     aliases: ['K8s', 'Container Orchestration'],
     category: 'DevOps/Cloud',
@@ -310,7 +310,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-aws',
+    key: 'devops.aws',
     name: 'AWS',
     aliases: ['Amazon Web Services', 'AWS Cloud'],
     category: 'DevOps/Cloud',
@@ -318,7 +318,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-gcp',
+    key: 'devops.gcp',
     name: 'Google Cloud',
     aliases: ['GCP', 'Google Cloud Platform'],
     category: 'DevOps/Cloud',
@@ -326,7 +326,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-azure',
+    key: 'devops.azure',
     name: 'Azure',
     aliases: ['Microsoft Azure', 'Azure Cloud'],
     category: 'DevOps/Cloud',
@@ -334,7 +334,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-cicd',
+    key: 'devops.ci_cd',
     name: 'CI/CD',
     aliases: ['Continuous Delivery', 'Build Pipelines'],
     category: 'DevOps/Cloud',
@@ -342,7 +342,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-iac',
+    key: 'devops.iac',
     name: 'Infrastructure as Code',
     aliases: ['IaC', 'Terraform Workflows'],
     category: 'DevOps/Cloud',
@@ -350,7 +350,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'devops-monitoring',
+    key: 'devops.monitoring',
     name: 'Monitoring',
     aliases: ['Observability', 'Production Metrics'],
     category: 'DevOps/Cloud',
@@ -358,7 +358,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'quality-unit-testing',
+    key: 'quality.unit_testing',
     name: 'Unit Testing',
     aliases: ['Test Automation', 'Automated Unit Tests'],
     category: 'Quality',
@@ -366,7 +366,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'quality-integration-testing',
+    key: 'quality.integration_testing',
     name: 'Integration Testing',
     aliases: ['Service Tests', 'API Integration Tests'],
     category: 'Quality',
@@ -374,7 +374,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'quality-e2e-testing',
+    key: 'quality.e2e_testing',
     name: 'End-to-End Testing',
     aliases: ['E2E Tests', 'Browser Tests'],
     category: 'Quality',
@@ -382,7 +382,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'quality-playwright',
+    key: 'quality.playwright',
     name: 'Playwright',
     aliases: ['Playwright Tests', 'Browser Automation'],
     category: 'Quality',
@@ -390,7 +390,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'quality-code-review',
+    key: 'quality.code_review',
     name: 'Code Review',
     aliases: ['Review Discipline', 'Pull Request Review'],
     category: 'Quality',
@@ -398,7 +398,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'quality-performance',
+    key: 'quality.performance',
     name: 'Performance Testing',
     aliases: ['Load Testing', 'Benchmarking'],
     category: 'Quality',
@@ -406,7 +406,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'security-authentication',
+    key: 'security.authentication',
     name: 'Authentication',
     aliases: ['Login Systems', 'Identity Auth'],
     category: 'Security',
@@ -414,7 +414,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'security-authorization',
+    key: 'security.authorization',
     name: 'Authorization',
     aliases: ['Access Control', 'Permissions Design'],
     category: 'Security',
@@ -422,7 +422,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'security-owasp',
+    key: 'security.owasp',
     name: 'OWASP',
     aliases: ['Web Security Risks', 'OWASP Top Ten'],
     category: 'Security',
@@ -430,7 +430,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'security-appsec',
+    key: 'security.appsec',
     name: 'Application Security',
     aliases: ['AppSec', 'Secure Coding'],
     category: 'Security',
@@ -438,7 +438,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'security-secrets',
+    key: 'security.secrets',
     name: 'Secrets Management',
     aliases: ['Credential Hygiene', 'Secret Rotation'],
     category: 'Security',
@@ -446,7 +446,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'design-ux-research',
+    key: 'design.ux_research',
     name: 'UX Research',
     aliases: ['User Research', 'Research Interviews'],
     category: 'Design/Product',
@@ -454,7 +454,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'design-ui-design',
+    key: 'design.ui_design',
     name: 'UI Design',
     aliases: ['Interface Design', 'Visual Interface'],
     category: 'Design/Product',
@@ -462,7 +462,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'design-design-systems',
+    key: 'design.design_systems',
     name: 'Design Systems',
     aliases: ['Component Libraries', 'UI Systems'],
     category: 'Design/Product',
@@ -470,7 +470,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'design-product-management',
+    key: 'design.product_management',
     name: 'Product Management',
     aliases: ['Product Strategy', 'Roadmap Planning'],
     category: 'Design/Product',
@@ -478,7 +478,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'design-prototyping',
+    key: 'design.prototyping',
     name: 'Prototyping',
     aliases: ['Interactive Prototypes', 'Clickable Mockups'],
     category: 'Design/Product',
@@ -486,7 +486,7 @@ export const STANDARD_SKILLS = [
     status: 'approved',
   },
   {
-    key: 'design-figma',
+    key: 'design.figma',
     name: 'Figma',
     aliases: ['Figma Design', 'Figma Prototypes'],
     category: 'Design/Product',
@@ -547,7 +547,10 @@ function labelIndex(catalog) {
     const key = legacyCatalogKey(skill.key);
 
     for (const label of [skill.name, ...(skill.aliases ?? [])]) {
-      labels.set(normalizeSkillName(label), key);
+      const normalized = normalizeSkillName(label);
+      const candidates = labels.get(normalized) ?? [];
+      candidates.push({ key, reason: 'alias' });
+      labels.set(normalized, candidates);
     }
   }
 
@@ -561,7 +564,10 @@ function exactLabelIndex(catalog) {
     const key = legacyCatalogKey(skill.key);
 
     for (const label of [skill.name, ...(skill.aliases ?? [])]) {
-      labels.set(String(label ?? '').trim().toLowerCase(), key);
+      const exactLabel = String(label ?? '').trim().toLowerCase();
+      const candidates = labels.get(exactLabel) ?? [];
+      candidates.push({ key, reason: 'alias' });
+      labels.set(exactLabel, candidates);
     }
   }
 
@@ -586,19 +592,33 @@ export function matchCatalogSkill(value, catalog = STANDARD_SKILLS) {
     return pendingSkillMatch('no_match');
   }
 
-  if (AMBIGUOUS_SKILL_NAMES.has(normalized)) {
+  const normalizedLabelCandidates = labelIndex(catalog).get(normalized);
+  const exactLabelCandidates = exactLabelIndex(catalog).get(exactLabel);
+
+  if (exactLabelCandidates && normalizedLabelCandidates?.length > 1) {
     return pendingSkillMatch('ambiguous');
   }
 
-  const exactMatchedKey = exactLabelIndex(catalog).get(exactLabel);
+  if (exactLabelCandidates?.length > 1) {
+    return pendingSkillMatch('ambiguous');
+  }
 
-  if (exactMatchedKey) {
+  if (exactLabelCandidates?.length === 1) {
+    const [candidate] = exactLabelCandidates;
     return {
       status: 'matched',
-      key: exactMatchedKey,
+      key: candidate.key,
       confidence: 1,
-      reason: 'alias',
+      reason: candidate.reason,
     };
+  }
+
+  if (normalizedLabelCandidates?.length > 1) {
+    return pendingSkillMatch('ambiguous');
+  }
+
+  if (AMBIGUOUS_SKILL_NAMES.has(normalized)) {
+    return pendingSkillMatch('ambiguous');
   }
 
   const safeFuzzyKey = SAFE_FUZZY_SKILL_KEYS.get(normalized);
@@ -612,14 +632,13 @@ export function matchCatalogSkill(value, catalog = STANDARD_SKILLS) {
     };
   }
 
-  const matchedKey = labelIndex(catalog).get(normalized);
-
-  if (matchedKey) {
+  if (normalizedLabelCandidates?.length === 1) {
+    const [candidate] = normalizedLabelCandidates;
     return {
       status: 'matched',
-      key: matchedKey,
+      key: candidate.key,
       confidence: 1,
-      reason: 'alias',
+      reason: candidate.reason,
     };
   }
 

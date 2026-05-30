@@ -5,6 +5,7 @@ import {
   CATALOG_CATEGORIES,
   CATALOG_SKILL_TYPES,
   STANDARD_SKILLS,
+  catalogByKey,
   matchCatalogSkill,
   normalizeSkillName,
   validateStandardCatalog,
@@ -26,6 +27,15 @@ test('standard catalog uses only known categories and skill types', () => {
 
   assert.equal(STANDARD_SKILLS.every((skill) => categories.has(skill.category)), true);
   assert.equal(STANDARD_SKILLS.every((skill) => types.has(skill.skillType)), true);
+});
+
+test('standard catalog keys are canonical dotted keys used by matcher results', () => {
+  assert.equal(STANDARD_SKILLS.every((skill) => skill.key.includes('.')), true);
+  assert.equal(STANDARD_SKILLS.every((skill) => !skill.key.includes('-')), true);
+
+  const match = matchCatalogSkill('React.js');
+
+  assert.equal(catalogByKey().has(match.key), true);
 });
 
 test('standard catalog aliases are unique after normalization', () => {
@@ -79,6 +89,54 @@ test('matchCatalogSkill sends ambiguous broad terms to pending', () => {
     reason: 'ambiguous',
   });
   assert.deepEqual(matchCatalogSkill('cloud'), {
+    status: 'pending',
+    key: null,
+    confidence: 0,
+    reason: 'ambiguous',
+  });
+});
+
+test('matchCatalogSkill lets explicit aliases win over broad-term ambiguity', () => {
+  const catalog = [
+    {
+      key: 'custom.cloud',
+      name: 'Cloud Specialty',
+      aliases: ['Cloud'],
+      category: 'DevOps/Cloud',
+      skillType: 'capability',
+      status: 'approved',
+    },
+  ];
+
+  assert.deepEqual(matchCatalogSkill('Cloud', catalog), {
+    status: 'matched',
+    key: 'custom.cloud',
+    confidence: 1,
+    reason: 'alias',
+  });
+});
+
+test('matchCatalogSkill sends duplicate normalized aliases in supplied catalog to pending', () => {
+  const catalog = [
+    {
+      key: 'custom.react_one',
+      name: 'React One',
+      aliases: ['React.js'],
+      category: 'Frontend',
+      skillType: 'tool',
+      status: 'approved',
+    },
+    {
+      key: 'custom.react_two',
+      name: 'React Two',
+      aliases: ['React JS'],
+      category: 'Frontend',
+      skillType: 'tool',
+      status: 'approved',
+    },
+  ];
+
+  assert.deepEqual(matchCatalogSkill('React.js', catalog), {
     status: 'pending',
     key: null,
     confidence: 0,
