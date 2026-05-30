@@ -187,8 +187,12 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(sql, /status text not null default 'approved'/);
   assert.match(sql, /skill_type text not null default 'tool'/);
   assert.match(sql, /aliases jsonb not null default '\[\]'::jsonb/);
-  assert.match(sql, /canonical_skill_id uuid references app_skill_map\.skills\(id\)/);
+  assert.match(sql, /canonical_skill_id uuid/);
   assert.match(sql, /reviewed_by uuid references auth\.users\(id\)/);
   assert.match(sql, /idx_skills_workspace_status/);
-  assert.match(sql, /idx_skills_workspace_catalog_key/);
+  assert.match(sql, /create unique index if not exists idx_skills_workspace_catalog_key/);
+  assert.match(sql, /idx_skills_workspace_id_unique/);
+  assert.match(sql, /skills_canonical_same_workspace_fk/);
+  assert.match(sql, /foreign key \(workspace_id, canonical_skill_id\)/);
+  assert.match(sql, /references app_skill_map\.skills\(workspace_id, id\)/);
 });

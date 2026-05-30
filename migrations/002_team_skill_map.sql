@@ -15,7 +15,7 @@ create table if not exists app_skill_map.skills (
   aliases jsonb not null default '[]'::jsonb,
   description text not null default '' check (char_length(description) <= 500),
   source text not null default 'legacy' check (source in ('catalog', 'proposal', 'legacy')),
-  canonical_skill_id uuid references app_skill_map.skills(id) on delete set null,
+  canonical_skill_id uuid,
   reviewed_by uuid references auth.users(id),
   reviewed_at timestamptz,
   review_note text not null default '' check (char_length(review_note) <= 500),
@@ -63,7 +63,7 @@ alter table app_skill_map.skills
   add column if not exists source text not null default 'legacy' check (source in ('catalog', 'proposal', 'legacy'));
 
 alter table app_skill_map.skills
-  add column if not exists canonical_skill_id uuid references app_skill_map.skills(id) on delete set null;
+  add column if not exists canonical_skill_id uuid;
 
 alter table app_skill_map.skills
   add column if not exists reviewed_by uuid references auth.users(id);
@@ -92,12 +92,28 @@ alter table app_skill_map.member_skills
 create index if not exists idx_skills_workspace on app_skill_map.skills (workspace_id);
 create index if not exists idx_skills_workspace_category on app_skill_map.skills (workspace_id, category);
 create index if not exists idx_skills_workspace_status on app_skill_map.skills (workspace_id, status);
-create index if not exists idx_skills_workspace_catalog_key on app_skill_map.skills (workspace_id, catalog_key) where catalog_key is not null;
+create unique index if not exists idx_skills_workspace_catalog_key on app_skill_map.skills (workspace_id, catalog_key) where catalog_key is not null;
+create unique index if not exists idx_skills_workspace_id_unique on app_skill_map.skills (workspace_id, id);
 create index if not exists idx_skills_workspace_canonical on app_skill_map.skills (workspace_id, canonical_skill_id) where canonical_skill_id is not null;
 create index if not exists idx_member_skills_workspace on app_skill_map.member_skills (workspace_id);
 create index if not exists idx_member_skills_workspace_user on app_skill_map.member_skills (workspace_id, user_id);
 create index if not exists idx_member_skills_workspace_skill on app_skill_map.member_skills (workspace_id, skill_id);
 create index if not exists idx_member_skills_workspace_level on app_skill_map.member_skills (workspace_id, level desc);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'skills_canonical_same_workspace_fk'
+      and conrelid = 'app_skill_map.skills'::regclass
+  ) then
+    alter table app_skill_map.skills
+      add constraint skills_canonical_same_workspace_fk
+      foreign key (workspace_id, canonical_skill_id)
+      references app_skill_map.skills(workspace_id, id)
+      on delete set null;
+  end if;
+end $$;
 
 grant select, insert, update, delete on app_skill_map.skills to authenticated;
 grant select, insert, update, delete on app_skill_map.member_skills to authenticated;
