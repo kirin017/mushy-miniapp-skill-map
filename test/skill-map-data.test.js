@@ -251,8 +251,10 @@ test('composeSkillMapView deduplicates direct and merged rows for the same membe
     {
       id: 'react',
       rowId: 'merged-row',
+      memberSkillIds: ['direct-row', 'merged-row'],
       skillId: 'skill-react',
       sourceSkillId: 'skill-reactjs',
+      sourceSkillIds: ['skill-react', 'skill-reactjs'],
       level: 4,
       interest: 3,
       note: 'Stronger merged row',
@@ -467,6 +469,38 @@ test('saveProfileSkill attaches merged duplicate names to the canonical approved
   assert.equal(calls.find((call) => call.table === 'member_skills' && call.op === 'upsert').row.skill_id, 'skill-react');
 });
 
+test('saveProfileSkill attaches catalog aliases to the approved catalog skill', async () => {
+  const calls = [];
+  const db = makeSaveProfileSkillDb({
+    calls,
+    existingSkill: null,
+    catalogSkill: {
+      id: 'skill-postgresql',
+      name: 'PostgreSQL',
+      category: 'Database/Data',
+      status: 'approved',
+      canonical_skill_id: null,
+      catalog_key: 'data.postgresql',
+    },
+  });
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    skillName: 'Postgres',
+    category: 'Database/Data',
+    level: 2,
+    interest: 3,
+    note: 'Query tuning',
+  });
+
+  assert.equal(saved.skill_id, 'skill-postgresql');
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'insert'), false);
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'upsert'), false);
+  assert.equal(calls.find((call) => call.op === 'eq' && call.column === 'catalog_key').value, 'data.postgresql');
+});
+
 test('saveProfileSkill updates an existing member skill row by row id', async () => {
   const calls = [];
   const db = {
@@ -521,6 +555,62 @@ test('saveProfileSkill updates an existing member skill row by row id', async ()
   assert.equal(calls.some((call) => call.op === 'upsert'), false);
 });
 
+test('saveProfileSkill updates all deduped member skill rows by row ids', async () => {
+  const calls = [];
+  const db = {
+    from(table) {
+      return {
+        update(row) {
+          calls.push({ table, op: 'update', row });
+          return {
+            eq(column, value) {
+              calls.push({ table, op: 'eq', column, value });
+              return this;
+            },
+            in(column, values) {
+              calls.push({ table, op: 'in', column, values });
+              return this;
+            },
+            select(columns) {
+              calls.push({ table, op: 'select', columns });
+              return Promise.resolve({
+                data: [
+                  { id: 'direct-row', user_id: 'u-me', skill_id: 'skill-react', ...row },
+                  { id: 'merged-row', user_id: 'u-me', skill_id: 'skill-reactjs', ...row },
+                ],
+                error: null,
+              });
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    memberSkillIds: ['direct-row', 'merged-row'],
+    level: 1,
+    interest: 3,
+    note: 'Adjusted all duplicate rows',
+  });
+
+  assert.equal(saved.id, 'direct-row');
+  assert.deepEqual(calls.filter((call) => call.op === 'eq'), [
+    { table: 'member_skills', op: 'eq', column: 'workspace_id', value: 'ws-active' },
+    { table: 'member_skills', op: 'eq', column: 'user_id', value: 'u-me' },
+  ]);
+  assert.deepEqual(calls.find((call) => call.op === 'in'), {
+    table: 'member_skills',
+    op: 'in',
+    column: 'id',
+    values: ['direct-row', 'merged-row'],
+  });
+  assert.equal(calls.some((call) => call.op === 'upsert'), false);
+});
+
 test('deleteProfileSkill deletes an existing member skill row by row id', async () => {
   const calls = [];
   const db = {
@@ -557,20 +647,63 @@ test('deleteProfileSkill deletes an existing member skill row by row id', async 
   ]);
 });
 
-function makeSaveProfileSkillDb({ calls, existingSkill }) {
-  return {
+test('deleteProfileSkill deletes all deduped member skill rows by row ids', async () => {
+  const calls = [];
+  const db = {
     from(table) {
       return {
-        select(columns) {
-          calls.push({ table, op: 'select', columns });
+        delete() {
+          calls.push({ table, op: 'delete' });
           return {
             eq(column, value) {
               calls.push({ table, op: 'eq', column, value });
               return this;
             },
+            in(column, values) {
+              calls.push({ table, op: 'in', column, values });
+              return this;
+            },
+            then(resolve) {
+              return Promise.resolve({ error: null }).then(resolve);
+            },
+          };
+        },
+      };
+    },
+  };
+
+  await deleteProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    memberSkillIds: ['direct-row', 'merged-row'],
+  });
+
+  assert.deepEqual(calls, [
+    { table: 'member_skills', op: 'delete' },
+    { table: 'member_skills', op: 'eq', column: 'workspace_id', value: 'ws-active' },
+    { table: 'member_skills', op: 'eq', column: 'user_id', value: 'u-me' },
+    { table: 'member_skills', op: 'in', column: 'id', values: ['direct-row', 'merged-row'] },
+  ]);
+});
+
+function makeSaveProfileSkillDb({ calls, existingSkill, catalogSkill = null }) {
+  return {
+    from(table) {
+      const filters = {};
+      return {
+        select(columns) {
+          calls.push({ table, op: 'select', columns });
+          return {
+            eq(column, value) {
+              filters[column] = value;
+              calls.push({ table, op: 'eq', column, value });
+              return this;
+            },
             maybeSingle() {
               calls.push({ table, op: 'maybeSingle' });
-              return Promise.resolve({ data: existingSkill, error: null });
+              const data = filters.catalog_key ? catalogSkill : existingSkill;
+              return Promise.resolve({ data, error: null });
             },
           };
         },

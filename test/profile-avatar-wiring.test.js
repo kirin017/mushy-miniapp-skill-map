@@ -40,7 +40,7 @@ test('ProfileScreen sends persisted member skill row ids for profile edit and de
   const reportScreenStart = source.indexOf('function ReportScreen');
   const profileScreenSource = source.slice(profileScreenStart, reportScreenStart);
 
-  assert.match(profileScreenSource, /memberSkillId:\s*profileSkill\.rowId/);
+  assert.match(profileScreenSource, /memberSkillIds:\s*profileSkill\.memberSkillIds/);
   assert.match(profileScreenSource, /requestRemoveSkill\(profileSkill\)/);
   assert.match(profileScreenSource, /onDeleteProfileSkill\(profileSkill\)/);
   assert.match(profileScreenSource, /pendingDeleteProfileSkill/);

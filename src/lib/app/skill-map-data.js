@@ -135,11 +135,30 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
       skill_id: canonicalSkillId,
       sourceSkillId: row.skill_id,
       isDirectCanonical: row.skill_id === canonicalSkillId,
+      memberSkillIds: row.id ? [row.id] : [],
+      sourceSkillIds: [row.skill_id],
     };
     const key = `${row.user_id}\u0000${canonicalSkillId}`;
     const existing = memberSkillRowsByMemberAndSkill.get(key);
-    if (!existing || shouldPreferMemberSkillRow(resolvedRow, existing)) {
+    if (!existing) {
       memberSkillRowsByMemberAndSkill.set(key, resolvedRow);
+      continue;
+    }
+
+    const mergedIds = uniqueValues([...existing.memberSkillIds, ...resolvedRow.memberSkillIds]);
+    const mergedSkillIds = uniqueValues([...existing.sourceSkillIds, ...resolvedRow.sourceSkillIds]);
+    if (shouldPreferMemberSkillRow(resolvedRow, existing)) {
+      memberSkillRowsByMemberAndSkill.set(key, {
+        ...resolvedRow,
+        memberSkillIds: mergedIds,
+        sourceSkillIds: mergedSkillIds,
+      });
+    } else {
+      memberSkillRowsByMemberAndSkill.set(key, {
+        ...existing,
+        memberSkillIds: mergedIds,
+        sourceSkillIds: mergedSkillIds,
+      });
     }
   }
   const memberSkillRows = [...memberSkillRowsByMemberAndSkill.values()];
@@ -237,8 +256,10 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
       return {
         id: skillKey(skill.name),
         rowId: row.id,
+        ...(row.memberSkillIds?.length > 1 ? { memberSkillIds: row.memberSkillIds } : {}),
         skillId: row.skill_id,
         ...(row.sourceSkillId && row.sourceSkillId !== row.skill_id ? { sourceSkillId: row.sourceSkillId } : {}),
+        ...(row.sourceSkillIds?.length > 1 ? { sourceSkillIds: row.sourceSkillIds } : {}),
         level: clampInteger(row.level, 0, 4),
         interest: clampInteger(row.interest, 0, 3),
         note: row.note || '',
@@ -271,19 +292,32 @@ export async function loadSkillMapData({ db, listMembers, workspaceId, userId })
   return composeSkillMapView({ currentUserId: userId, skills, memberSkills, members });
 }
 
-export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note, memberSkillId }) {
-  if (memberSkillId) {
+export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note, memberSkillId, memberSkillIds }) {
+  const targetMemberSkillIds = uniqueValues([...(memberSkillIds || []), memberSkillId]);
+  if (targetMemberSkillIds.length) {
     const row = {
       level: clampInteger(level, 0, 4),
       interest: clampInteger(interest, 0, 3),
       note: String(note || '').trim(),
     };
+    if (targetMemberSkillIds.length > 1) {
+      const { data, error } = await db
+        .from('member_skills')
+        .update(row)
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', userId)
+        .in('id', targetMemberSkillIds)
+        .select('id,user_id,skill_id,level,interest,note');
+      if (error) throw new Error('save profile skill: ' + error.message);
+      return data?.[0] || null;
+    }
+
     const { data, error } = await db
       .from('member_skills')
       .update(row)
       .eq('workspace_id', workspaceId)
       .eq('user_id', userId)
-      .eq('id', memberSkillId)
+      .eq('id', targetMemberSkillIds[0])
       .select('id,user_id,skill_id,level,interest,note')
       .single();
     if (error) throw new Error('save profile skill: ' + error.message);
@@ -301,16 +335,21 @@ export async function saveProfileSkill({ db, workspaceId, userId, skillId, skill
   return data;
 }
 
-export async function deleteProfileSkill({ db, workspaceId, userId, skillId, memberSkillId }) {
+export async function deleteProfileSkill({ db, workspaceId, userId, skillId, memberSkillId, memberSkillIds }) {
+  const targetMemberSkillIds = uniqueValues([...(memberSkillIds || []), memberSkillId]);
   let query = db
     .from('member_skills')
     .delete()
     .eq('workspace_id', workspaceId)
     .eq('user_id', userId);
 
-  query = memberSkillId
-    ? query.eq('id', memberSkillId)
-    : query.eq('skill_id', skillId);
+  if (targetMemberSkillIds.length > 1) {
+    query = query.in('id', targetMemberSkillIds);
+  } else if (targetMemberSkillIds.length === 1) {
+    query = query.eq('id', targetMemberSkillIds[0]);
+  } else {
+    query = query.eq('skill_id', skillId);
+  }
 
   const { error } = await query;
   if (error) throw new Error('delete profile skill: ' + error.message);
@@ -320,20 +359,30 @@ async function createCustomSkill({ db, workspaceId, userId, skillName, category,
   const row = buildCustomSkillUpsert({ workspaceId, userId, name: skillName, category, note });
   const { data: existingSkill, error: selectError } = await db
     .from('skills')
-    .select('id,name,category,is_preset,status,canonical_skill_id')
+    .select('id,name,category,is_preset,status,canonical_skill_id,catalog_key')
     .eq('workspace_id', workspaceId)
     .eq('name', row.name)
     .maybeSingle();
   if (selectError) throw new Error('find custom skill: ' + selectError.message);
 
-  if (existingSkill?.status === 'approved' || existingSkill?.status === 'pending') {
-    return existingSkill.id;
-  }
-  if (existingSkill?.status === 'merged' && existingSkill.canonical_skill_id) {
-    return existingSkill.canonical_skill_id;
-  }
+  const existingSkillId = reusableSkillId(existingSkill);
+  if (existingSkillId) return existingSkillId;
+
   if (existingSkill && existingSkill.status !== 'rejected') {
     throw new Error(`create custom skill: existing skill "${row.name}" cannot be reused`);
+  }
+
+  const catalogMatch = matchCatalogSkill(row.name);
+  if (catalogMatch.status === 'matched') {
+    const { data: catalogSkill, error: catalogError } = await db
+      .from('skills')
+      .select('id,name,category,is_preset,status,canonical_skill_id,catalog_key')
+      .eq('workspace_id', workspaceId)
+      .eq('catalog_key', catalogMatch.key)
+      .maybeSingle();
+    if (catalogError) throw new Error('find catalog skill: ' + catalogError.message);
+    const catalogSkillId = reusableSkillId(catalogSkill);
+    if (catalogSkillId) return catalogSkillId;
   }
 
   const { data, error } = await db
@@ -347,6 +396,12 @@ async function createCustomSkill({ db, workspaceId, userId, skillName, category,
   if (error) throw new Error('create custom skill: ' + error.message);
   if (!data?.id) throw new Error('create custom skill: missing id');
   return data.id;
+}
+
+function reusableSkillId(skill) {
+  if (skill?.status === 'approved' || skill?.status === 'pending') return skill.id;
+  if (skill?.status === 'merged' && skill.canonical_skill_id) return skill.canonical_skill_id;
+  return null;
 }
 
 function fetchSkills(db, workspaceId) {
@@ -416,6 +471,10 @@ function isUniqueViolation(error) {
 
 function isApprovedSkill(skill) {
   return !skill?.status || skill.status === 'approved';
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function shouldPreferMemberSkillRow(candidate, current) {

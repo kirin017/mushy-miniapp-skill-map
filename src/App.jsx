@@ -151,8 +151,9 @@ function SkillMapApp({ ctx }) {
   }, [members, query, selected.name, selectedSkill]);
 
   async function handleSaveProfileSkill(draft) {
-    const skill = draft.customSkill || draft.memberSkillId ? null : skills.find((item) => item.id === draft.skillId);
-    if (!draft.customSkill && !draft.memberSkillId && !skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để lưu');
+    const hasMemberSkillRows = !!(draft.memberSkillId || draft.memberSkillIds?.length);
+    const skill = draft.customSkill || hasMemberSkillRows ? null : skills.find((item) => item.id === draft.skillId);
+    if (!draft.customSkill && !hasMemberSkillRows && !skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để lưu');
     if (draft.customSkill && !draft.skillName?.trim()) throw new Error('Tên kỹ năng không được để trống');
     setSaving(true);
     try {
@@ -161,6 +162,7 @@ function SkillMapApp({ ctx }) {
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
         memberSkillId: draft.memberSkillId || null,
+        memberSkillIds: draft.memberSkillIds || [],
         skillId: skill?.skillId || null,
         skillName: draft.customSkill ? draft.skillName : null,
         category: draft.customSkill ? draft.category : null,
@@ -178,10 +180,11 @@ function SkillMapApp({ ctx }) {
     const skillKey = typeof profileSkill === 'string' ? profileSkill : profileSkill?.id;
     const skill = skills.find((item) => item.id === skillKey);
     const memberSkillId = typeof profileSkill === 'object' ? profileSkill.rowId : null;
+    const memberSkillIds = typeof profileSkill === 'object' ? profileSkill.memberSkillIds || [] : [];
     const skillId = typeof profileSkill === 'object'
       ? profileSkill.sourceSkillId || profileSkill.skillId || skill?.skillId
       : skill?.skillId;
-    if (!memberSkillId && !skillId) throw new Error('Kỹ năng chưa sẵn sàng để xóa');
+    if (!memberSkillId && !memberSkillIds.length && !skillId) throw new Error('Kỹ năng chưa sẵn sàng để xóa');
     setSaving(true);
     try {
       await deleteProfileSkill({
@@ -189,6 +192,7 @@ function SkillMapApp({ ctx }) {
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
         memberSkillId,
+        memberSkillIds,
         skillId,
       });
       await reload();
@@ -778,7 +782,7 @@ function ProfileScreen({
     skills: profileSkillCatalog,
   });
   const canSaveDraft = draft
-    ? !saving && (draft.customSkill ? draft.skillName.trim().length > 0 : !!(draft.memberSkillId || draft.skillId))
+    ? !saving && (draft.customSkill ? draft.skillName.trim().length > 0 : !!(draft.memberSkillId || draft.memberSkillIds?.length || draft.skillId))
     : false;
 
   function openAddForm() {
@@ -800,6 +804,7 @@ function ProfileScreen({
     setDraft({
       mode: 'edit',
       memberSkillId: profileSkill.rowId || null,
+      memberSkillIds: profileSkill.memberSkillIds || [],
       profileSkillKey: profileSkillKey(profileSkill),
       skillId: profileSkill.id,
       skill,
