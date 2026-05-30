@@ -1,4 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { gsap } from 'gsap';
+import { useGSAP } from '@gsap/react';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import './App.css';
 import ScopeSwitcher from './components/ScopeSwitcher.jsx';
 import ShareManageModal from './components/ShareManageModal.jsx';
@@ -19,6 +22,8 @@ const LEVEL_BADGES = ['0 Học', '1 Cơ bản', '2 Làm được', '3 Thành th�
 const INITIAL_SKILLS = PRESET_SKILLS.map((skill) => ({ ...skill, skillId: null, total: 0, risk: 1 }));
 const EMPTY_VIEW = { skills: INITIAL_SKILLS, members: [], profileSkills: [] };
 
+gsap.registerPlugin(useGSAP, ScrollTrigger);
+
 export default function App() {
   const [ctxResult] = useState(() => {
     try {
@@ -36,6 +41,7 @@ export default function App() {
 }
 
 function SkillMapApp({ ctx }) {
+  const shellRef = useRef(null);
   useDefaultScopeInitializer();
   const activeScope = useActiveScope();
   const [tab, setTab] = useState('overview');
@@ -50,6 +56,55 @@ function SkillMapApp({ ctx }) {
   const skills = view.skills.length ? view.skills : INITIAL_SKILLS;
   const members = view.members;
   const profileSkills = view.profileSkills;
+
+  useGSAP(() => {
+    const root = shellRef.current;
+    if (!root) return undefined;
+
+    const motion = gsap.matchMedia();
+    motion.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.from('[data-gsap="fade-up"]', {
+        y: 28,
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power3.out',
+        stagger: 0.08,
+      });
+
+      gsap.utils.toArray('[data-gsap="image-reveal"]').forEach((element) => {
+        gsap.fromTo(
+          element,
+          { scale: 0.88, opacity: 0.45, filter: 'contrast(0.85) brightness(0.8)' },
+          {
+            scale: 1,
+            opacity: 1,
+            filter: 'contrast(1.08) brightness(1)',
+            ease: 'none',
+            scrollTrigger: {
+              trigger: element,
+              start: 'top 86%',
+              end: 'bottom 22%',
+              scrub: true,
+            },
+          },
+        );
+      });
+
+      const desire = root.querySelector('[data-gsap="desire"]');
+      const pinTitle = root.querySelector('[data-gsap="pin-title"]');
+      if (desire && pinTitle && window.matchMedia('(min-width: 900px)').matches) {
+        ScrollTrigger.create({
+          trigger: desire,
+          start: 'top 92px',
+          end: 'bottom bottom',
+          pin: pinTitle,
+          pinSpacing: false,
+        });
+      }
+    });
+
+    return () => motion.revert();
+  }, { scope: shellRef, dependencies: [tab, loading, selectedSkill] });
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -136,7 +191,7 @@ function SkillMapApp({ ctx }) {
   }
 
   return (
-    <main className="mushy-shell">
+    <main className="mushy-shell" ref={shellRef}>
       <div className="integration-strip">
         <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
         <button type="button" onClick={reload} disabled={loading}>{loading ? 'Đang tải' : 'Làm mới'}</button>
@@ -201,7 +256,7 @@ function SkillMapApp({ ctx }) {
 
 function ShellRequired({ error }) {
   return (
-    <main className="mushy-shell">
+      <main className="mushy-shell shell-required-wrap">
       <section className="shell-required">
         <img className="mushy-avatar" src="/mushy.png" alt="Mushy" />
         <div>
@@ -274,14 +329,14 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
   return (
     <div className="screen screen--overview">
       <div className="overview-main">
-        <header className="home-header">
+        <header className="home-header" data-gsap="fade-up">
           <img className="mushy-avatar" src="/mushy.png" alt="Mushy" />
           <div>
-            <h1>Skill Map</h1>
-            <p>Hiểu năng lực team, hợp lực phát triển 🚀</p>
+            <h1>Skill <span className="inline-title-image" aria-hidden="true" /> Map</h1>
+            <p>Hiểu năng lực team, tìm đúng người, nâng cấp kỹ năng theo thời gian thực.</p>
           </div>
-          <button className="ghost-icon" type="button" aria-label="Thông báo" aria-expanded={noticeOpen} onClick={() => setNoticeOpen((open) => !open)}>🔔</button>
-          <button className="ghost-icon" type="button" aria-label="Mở menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>⋮</button>
+          <button className="ghost-icon" type="button" aria-label="Thông báo" aria-expanded={noticeOpen} onClick={() => setNoticeOpen((open) => !open)}>N</button>
+          <button className="ghost-icon" type="button" aria-label="Mở menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>M</button>
         </header>
 
         {(noticeOpen || menuOpen) && (
@@ -301,7 +356,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
           </section>
         )}
 
-        <div className="quick-grid">
+        <div className="quick-grid" data-gsap="fade-up">
           <button className="quick-card" type="button" onClick={onReport}>
             <span className="quick-icon heat-icon" aria-hidden="true">
               <i /><i /><i /><i /><i /><i /><i /><i /><i />
@@ -312,7 +367,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
             </span>
           </button>
           <button className="quick-card" type="button" onClick={onSearch}>
-            <span className="quick-people" aria-hidden="true">👫</span>
+            <span className="quick-people" aria-hidden="true">2x</span>
             <span>
               <strong>Tìm theo kỹ năng</strong>
               <small>Tìm người phù hợp</small>
@@ -320,7 +375,18 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
           </button>
         </div>
 
-        <div className="search-row">
+        <section className="skill-marquee" aria-label="Kỹ năng đang theo dõi" data-gsap="fade-up">
+          <div>
+            {[...skills.slice(0, 8), ...skills.slice(0, 8)].map((skill, index) => (
+              <span key={`${skill.id}-${index}`}>
+                <SkillIcon skill={skill} compact />
+                {skill.name}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <div className="search-row" data-gsap="fade-up">
           <label className="search-pill overview-search" htmlFor="overview-search">
             <span>⌕</span>
             <input
@@ -334,7 +400,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
               <button type="button" onClick={() => setOverviewSearch('')} aria-label="Xóa tìm kiếm">×</button>
             )}
           </label>
-          <button className="filter-pill" type="button" aria-expanded={filterOpen} onClick={() => setFilterOpen((open) => !open)}>⚗ Bộ lọc</button>
+          <button className="filter-pill" type="button" aria-expanded={filterOpen} onClick={() => setFilterOpen((open) => !open)}>Bộ lọc</button>
         </div>
 
         {filterOpen && (
@@ -345,7 +411,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
           </section>
         )}
 
-        <section className="panel heat-panel">
+        <section className="panel heat-panel" data-gsap="image-reveal">
           <div className="panel-head">
             <div>
               <h2>Heatmap năng lực</h2>
@@ -442,8 +508,8 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
           </div>
         </section>
 
-        <button className="gap-banner" type="button" onClick={onReport}>
-          <span>🏆</span>
+        <button className="gap-banner" type="button" onClick={onReport} data-gsap="image-reveal">
+          <span>!</span>
           <span>
             <strong>Kỹ năng cần bổ sung</strong>
             <small>Một số kỹ năng chưa có người ở mức Mentor hoặc Thành thạo.</small>
@@ -451,7 +517,7 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
           <b>Xem chi tiết →</b>
         </button>
 
-        <section className="panel popular-panel">
+        <section className="panel popular-panel" data-gsap="image-reveal">
           <div className="panel-head">
             <h2>Kỹ năng phổ biến trong team</h2>
             <button type="button" onClick={onSearch}>Xem tất cả</button>
@@ -464,6 +530,26 @@ function Overview({ skills, members, currentMember, onSearch, onReport, onProfil
                 <small>{skill.total}/{Math.max(members.length, 1)} người</small>
                 <i style={{ '--fill': `${Math.max(12, skill.total * 14)}%` }} />
               </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel motion-lab" data-gsap="desire">
+          <div className="motion-lab-title" data-gsap="pin-title">
+            <h2>Đọc năng lực như một bản đồ sống</h2>
+            <p>Mỗi ô level biến thành tín hiệu cho staffing, mentoring và kế hoạch học tập tiếp theo.</p>
+          </div>
+          <div className="motion-stack">
+            {heatSkills.slice(0, 3).map((skill, index) => (
+              <article key={skill.id} data-gsap="image-reveal">
+                <div
+                  className="motion-image"
+                  style={{ backgroundImage: `url(https://picsum.photos/seed/${skill.id}-capability/900/640)` }}
+                />
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{skill.name}</strong>
+                <small>{skill.risk ? 'Cần thêm mentor hoặc người làm chính.' : 'Đang có tín hiệu năng lực ổn định.'}</small>
+              </article>
             ))}
           </div>
         </section>
@@ -558,8 +644,8 @@ function DesktopCompanion({ skills, members, currentMember, selectedSkill, profi
         </div>
       </section>
 
-      <button className="desktop-risk" type="button" onClick={onReport}>
-        <span>🏆</span>
+      <button className="desktop-risk" type="button" onClick={onReport} data-gsap="image-reveal">
+        <span>!</span>
         <strong>Kỹ năng cần bổ sung</strong>
         <small>DevOps, Testing, Security đang thiếu mentor.</small>
         <b>Xem báo cáo →</b>
@@ -747,7 +833,7 @@ function ProfileScreen({
 
   return (
     <div className="screen compact-screen">
-      <TopBar title="Cá nhân" onBack={onBack} action="⚙" onAction={() => setSettingsOpen((open) => !open)} />
+      <TopBar title="Cá nhân" onBack={onBack} action="Set" onAction={() => setSettingsOpen((open) => !open)} />
       {settingsOpen && (
         <section className="profile-settings" aria-live="polite">
           <strong>Cài đặt cá nhân</strong>
@@ -905,8 +991,8 @@ function ProfileScreen({
                 {note && <p>{note}</p>}
               </div>
               <b>Quan tâm {interest}</b>
-              <button type="button" onClick={() => openEditForm({ id, level, interest, note })} aria-label={`Sửa ${skill.name}`} disabled={saving}>✎</button>
-              <button type="button" onClick={() => requestRemoveSkill(id)} aria-label={`Xóa ${skill.name}`} disabled={saving}>🗑</button>
+              <button type="button" onClick={() => openEditForm({ id, level, interest, note })} aria-label={`Sửa ${skill.name}`} disabled={saving}>Edit</button>
+              <button type="button" onClick={() => requestRemoveSkill(id)} aria-label={`Xóa ${skill.name}`} disabled={saving}>Del</button>
             </article>
           );
         })}
@@ -930,7 +1016,7 @@ function ReportScreen({ skills, onBack }) {
   return (
     <div className="screen compact-screen">
       <TopBar title="Kỹ năng cần bổ sung" onBack={onBack} />
-      <div className="warning-box">🏅 Các kỹ năng còn ít người ở mức Thành thạo hoặc Mentor</div>
+      <div className="warning-box">Các kỹ năng còn ít người ở mức Thành thạo hoặc Mentor</div>
       <div className="risk-list">
         {risks.map((skill) => (
           <article className="risk-card" key={skill.id}>
@@ -982,10 +1068,10 @@ function normalizeText(value) {
 
 function BottomNav({ active, onChange }) {
   const items = [
-    ['overview', '⌂', 'Tổng quan'],
-    ['search', '⌕', 'Tìm kiếm'],
-    ['profile', '♙', 'Cá nhân'],
-    ['report', '▥', 'Báo cáo'],
+    ['overview', 'Home', 'Tổng quan'],
+    ['search', 'Find', 'Tìm kiếm'],
+    ['profile', 'Me', 'Cá nhân'],
+    ['report', 'Risk', 'Báo cáo'],
   ];
   return (
     <nav className="bottom-nav" aria-label="Điều hướng">
