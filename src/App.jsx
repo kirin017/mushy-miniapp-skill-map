@@ -911,7 +911,7 @@ function ProfileScreen({
                 onClick={() => setDraft((current) => ({ ...current, customSkill: true, skillId: '' }))}
               >
                 <span aria-hidden="true">＋</span>
-                Skill mới
+                Đề xuất skill
               </button>
             )}
           </div>
