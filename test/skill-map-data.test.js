@@ -4,36 +4,57 @@ import { readFileSync } from 'node:fs';
 
 import {
   PRESET_SKILLS,
+  buildCatalogSkillRows,
   buildCustomSkillUpsert,
   buildProfileSummary,
   buildMemberSkillUpsert,
   buildPresetSkillRows,
   composeSkillMapView,
+  loadSkillMapData,
   saveProfileSkill,
 } from '../src/lib/app/skill-map-data.js';
 
-test('preset skills expose visual icon assets instead of initials-only labels', () => {
-  const textOnlyLabels = new Set(['Go', 'AI', 'QA', 'Sec', 'PG', 'Fig', 'App', 'PM']);
+test('preset skills are derived from the approved standard catalog with visual assets where known', () => {
+  assert.equal(PRESET_SKILLS.length >= 50, true);
+  assert.equal(PRESET_SKILLS.some((skill) => skill.id === 'frontend.react' && skill.name === 'React'), true);
 
-  assert.equal(PRESET_SKILLS.every((skill) => skill.iconUrl?.startsWith('https://cdn.simpleicons.org/')), true);
+  const knownVisualSkills = PRESET_SKILLS.filter((skill) => ['frontend.react', 'devops.docker', 'data.postgresql', 'design.figma'].includes(skill.id));
+  assert.equal(knownVisualSkills.every((skill) => skill.iconUrl?.startsWith('https://cdn.simpleicons.org/')), true);
   assert.equal(PRESET_SKILLS.every((skill) => skill.iconAlt === `${skill.name} icon`), true);
-  assert.equal(PRESET_SKILLS.every((skill) => !textOnlyLabels.has(skill.icon)), true);
 });
 
-test('buildPresetSkillRows creates RLS-ready preset rows for the active workspace', () => {
-  const rows = buildPresetSkillRows({ workspaceId: 'ws-1', userId: 'user-1' });
+test('buildCatalogSkillRows creates approved catalog rows for the active workspace', () => {
+  const rows = buildCatalogSkillRows({ workspaceId: 'ws-1', userId: 'user-1' });
+  const react = rows.find((row) => row.catalog_key === 'frontend.react');
 
-  assert.equal(rows.length >= 8, true);
-  assert.deepEqual(rows[0], {
+  assert.equal(rows.length >= 50, true);
+  assert.deepEqual(react, {
     workspace_id: 'ws-1',
     created_by: 'user-1',
+    catalog_key: 'frontend.react',
+    status: 'approved',
+    skill_type: 'tool',
+    aliases: ['React UI', 'React Components'],
+    description: '',
+    source: 'catalog',
+    canonical_skill_id: null,
+    review_note: '',
     name: 'React',
     category: 'Frontend',
     is_preset: true,
   });
   assert.equal(rows.every((row) => row.workspace_id === 'ws-1'), true);
   assert.equal(rows.every((row) => row.created_by === 'user-1'), true);
+  assert.equal(rows.every((row) => row.status === 'approved'), true);
+  assert.equal(rows.every((row) => row.source === 'catalog'), true);
   assert.equal(rows.every((row) => row.is_preset === true), true);
+});
+
+test('buildPresetSkillRows remains a compatibility wrapper for catalog rows', () => {
+  assert.deepEqual(
+    buildPresetSkillRows({ workspaceId: 'ws-1', userId: 'user-1' }),
+    buildCatalogSkillRows({ workspaceId: 'ws-1', userId: 'user-1' }),
+  );
 });
 
 test('composeSkillMapView derives heatmap members, skills, and current user profile from persisted rows', () => {
@@ -66,6 +87,47 @@ test('composeSkillMapView derives heatmap members, skills, and current user prof
     { id: 'react', rowId: undefined, skillId: 'skill-react', level: 3, interest: 3, note: 'Components' },
     { id: 'docker', rowId: undefined, skillId: 'skill-docker', level: 2, interest: 2, note: 'Compose' },
   ]);
+});
+
+test('composeSkillMapView excludes non-approved skills and preserves pending member skills', () => {
+  const view = composeSkillMapView({
+    currentUserId: 'u-me',
+    skills: [
+      { id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true, status: 'approved' },
+      { id: 'skill-rust', name: 'Rust', category: 'Backend', is_preset: false, status: 'pending' },
+      { id: 'skill-flash', name: 'Flash', category: 'Frontend', is_preset: false, status: 'rejected' },
+      { id: 'skill-js-old', name: 'JavaScript Old', category: 'Frontend', is_preset: false, status: 'merged' },
+    ],
+    memberSkills: [
+      { user_id: 'u-me', skill_id: 'skill-react', level: 3, interest: 2, note: 'Components' },
+      { id: 'pending-row', user_id: 'u-me', skill_id: 'skill-rust', level: 2, interest: 3, note: 'Want systems' },
+      { user_id: 'u-2', skill_id: 'skill-flash', level: 4, interest: 1, note: 'Legacy' },
+      { user_id: 'u-2', skill_id: 'skill-js-old', level: 4, interest: 1, note: 'Merged away' },
+    ],
+    members: [
+      { user_id: 'u-me', full_name: 'Nguyen Ha My' },
+      { user_id: 'u-2', full_name: 'Dau Van Nam' },
+    ],
+  });
+
+  assert.deepEqual(view.skills.map((skill) => skill.name), ['React']);
+  assert.equal(view.members[0].skills.react, 3);
+  assert.equal(view.members[0].skills.rust, undefined);
+  assert.deepEqual(view.members[0].pendingSkills, [
+    {
+      id: 'rust',
+      rowId: 'pending-row',
+      skillId: 'skill-rust',
+      name: 'Rust',
+      category: 'Backend',
+      status: 'pending',
+      level: 2,
+      interest: 3,
+      note: 'Want systems',
+    },
+  ]);
+  assert.deepEqual(view.members[1].pendingSkills, []);
+  assert.equal(view.profileSkills.some((skill) => skill.id === 'rust'), false);
 });
 
 test('buildMemberSkillUpsert writes the selected scope and current user', () => {
@@ -148,6 +210,56 @@ test('saveProfileSkill creates a custom skill before attaching it to the current
   assert.equal(calls[0].options.onConflict, 'workspace_id,name');
   assert.equal(calls[0].row.is_preset, false);
   assert.equal(calls[1].row.skill_id, 'skill-kafka');
+});
+
+test('loadSkillMapData syncs catalog rows and continues when catalog sync is blocked by RLS', async () => {
+  const upserts = [];
+  const selects = [];
+  const db = {
+    from(table) {
+      return {
+        upsert(rows, options) {
+          upserts.push({ table, rows, options });
+          return Promise.resolve({ data: null, error: { message: 'new row violates row-level security policy' } });
+        },
+        select(columns) {
+          selects.push({ table, columns });
+          const query = {
+            eq() {
+              return query;
+            },
+            in() {
+              return Promise.resolve({ data: [], error: null });
+            },
+            then(resolve) {
+              if (table === 'skills') {
+                return Promise.resolve({
+                  data: [{ id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true, status: 'approved' }],
+                  error: null,
+                }).then(resolve);
+              }
+              return Promise.resolve({ data: [], error: null }).then(resolve);
+            },
+          };
+          return query;
+        },
+      };
+    },
+  };
+
+  const view = await loadSkillMapData({
+    db,
+    listMembers: async () => [{ user_id: 'u-me', full_name: 'Nguyen Ha My' }],
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+  });
+
+  assert.equal(upserts.length, 1);
+  assert.equal(upserts[0].table, 'skills');
+  assert.equal(upserts[0].options.onConflict, 'workspace_id,catalog_key');
+  assert.equal(upserts[0].rows.length >= 50, true);
+  assert.match(selects.find((select) => select.table === 'skills').columns, /catalog_key/);
+  assert.deepEqual(view.skills.map((skill) => skill.name), ['React']);
 });
 
 test('buildProfileSummary uses the current Mushy member instead of fallback mock identity', () => {
