@@ -152,20 +152,29 @@ test('buildMemberSkillUpsert writes the selected scope and current user', () => 
   );
 });
 
-test('buildCustomSkillUpsert creates a normalized non-preset skill row', () => {
+test('buildCustomSkillUpsert creates a pending proposal skill row', () => {
   assert.deepEqual(
     buildCustomSkillUpsert({
       workspaceId: 'ws-active',
       userId: 'u-me',
       name: '  Kafka Streams  ',
       category: '  Backend  ',
+      note: ` ${'Production stream processing '.repeat(30)} `,
     }),
     {
       workspace_id: 'ws-active',
       created_by: 'u-me',
       name: 'Kafka Streams',
       category: 'Backend',
+      status: 'pending',
+      source: 'proposal',
       is_preset: false,
+      catalog_key: null,
+      skill_type: 'tool',
+      aliases: [],
+      canonical_skill_id: null,
+      review_note: '',
+      description: `${'Production stream processing '.repeat(30)}`.slice(0, 500),
     },
   );
 });
@@ -209,6 +218,9 @@ test('saveProfileSkill creates a custom skill before attaching it to the current
   assert.deepEqual(calls.map((call) => call.table), ['skills', 'member_skills']);
   assert.equal(calls[0].options.onConflict, 'workspace_id,name');
   assert.equal(calls[0].row.is_preset, false);
+  assert.equal(calls[0].row.status, 'pending');
+  assert.equal(calls[0].row.source, 'proposal');
+  assert.equal(calls[0].row.description, 'Want production tasks');
   assert.equal(calls[1].row.skill_id, 'skill-kafka');
 });
 
@@ -257,9 +269,35 @@ test('loadSkillMapData syncs catalog rows and continues when catalog sync is blo
   assert.equal(upserts.length, 1);
   assert.equal(upserts[0].table, 'skills');
   assert.equal(upserts[0].options.onConflict, 'workspace_id,catalog_key');
+  assert.equal(upserts[0].options.ignoreDuplicates, true);
   assert.equal(upserts[0].rows.length >= 50, true);
   assert.match(selects.find((select) => select.table === 'skills').columns, /catalog_key/);
   assert.deepEqual(view.skills.map((skill) => skill.name), ['React']);
+});
+
+test('loadSkillMapData throws non-permission catalog sync errors', async () => {
+  const db = {
+    from(table) {
+      return {
+        upsert() {
+          return Promise.resolve({ data: null, error: { message: 'database is unavailable', code: 'XX000' } });
+        },
+        select() {
+          throw new Error(`unexpected select for ${table}`);
+        },
+      };
+    },
+  };
+
+  await assert.rejects(
+    loadSkillMapData({
+      db,
+      listMembers: async () => [],
+      workspaceId: 'ws-active',
+      userId: 'u-me',
+    }),
+    /sync catalog skills: database is unavailable/,
+  );
 });
 
 test('buildProfileSummary uses the current Mushy member instead of fallback mock identity', () => {

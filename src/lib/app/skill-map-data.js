@@ -70,7 +70,7 @@ export function buildPresetSkillRows({ workspaceId, userId }) {
   return buildCatalogSkillRows({ workspaceId, userId });
 }
 
-export function buildCustomSkillUpsert({ workspaceId, userId, name, category }) {
+export function buildCustomSkillUpsert({ workspaceId, userId, name, category, note }) {
   const skillName = String(name || '').trim();
   if (!skillName) throw new Error('Tên kỹ năng không được để trống');
   return {
@@ -78,7 +78,15 @@ export function buildCustomSkillUpsert({ workspaceId, userId, name, category }) 
     created_by: userId,
     name: skillName.slice(0, 80),
     category: String(category || 'Custom').trim().slice(0, 40) || 'Custom',
+    status: 'pending',
+    source: 'proposal',
     is_preset: false,
+    catalog_key: null,
+    skill_type: 'tool',
+    aliases: [],
+    canonical_skill_id: null,
+    review_note: '',
+    description: String(note || '').trim().slice(0, 500),
   };
 }
 
@@ -235,7 +243,7 @@ export async function loadSkillMapData({ db, listMembers, workspaceId, userId })
 }
 
 export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note }) {
-  const resolvedSkillId = skillId || await createCustomSkill({ db, workspaceId, userId, skillName, category });
+  const resolvedSkillId = skillId || await createCustomSkill({ db, workspaceId, userId, skillName, category, note });
   const row = buildMemberSkillUpsert({ workspaceId, userId, skillId: resolvedSkillId, level, interest, note });
   const { data, error } = await db
     .from('member_skills')
@@ -256,8 +264,8 @@ export async function deleteProfileSkill({ db, workspaceId, userId, skillId }) {
   if (error) throw new Error('delete profile skill: ' + error.message);
 }
 
-async function createCustomSkill({ db, workspaceId, userId, skillName, category }) {
-  const row = buildCustomSkillUpsert({ workspaceId, userId, name: skillName, category });
+async function createCustomSkill({ db, workspaceId, userId, skillName, category, note }) {
+  const row = buildCustomSkillUpsert({ workspaceId, userId, name: skillName, category, note });
   const { data, error } = await db
     .from('skills')
     .upsert(row, {
@@ -307,14 +315,28 @@ async function syncCatalogSkillRows({ db, workspaceId, userId }) {
     const rows = buildCatalogSkillRows({ workspaceId, userId });
     const { error } = await db.from('skills').upsert(rows, {
       onConflict: 'workspace_id,catalog_key',
-      ignoreDuplicates: false,
+      ignoreDuplicates: true,
     });
     if (error) {
-      return;
+      if (isCatalogSyncPermissionError(error)) return;
+      throw error;
     }
-  } catch {
-    return;
+  } catch (error) {
+    if (isCatalogSyncPermissionError(error)) return;
+    throw new Error(`sync catalog skills: ${error?.message || String(error)}`);
   }
+}
+
+export function isCatalogSyncPermissionError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  const code = String(error?.code || '').toLowerCase();
+  return (
+    code === '42501'
+    || message.includes('row-level security')
+    || message.includes('rls')
+    || message.includes('permission denied')
+    || message.includes('new row violates row-level security')
+  );
 }
 
 function isApprovedSkill(skill) {
