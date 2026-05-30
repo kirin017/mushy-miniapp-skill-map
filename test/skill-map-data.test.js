@@ -84,12 +84,32 @@ test('composeSkillMapView derives heatmap members, skills, and current user prof
   assert.equal(view.members[0].skills.react, 3);
   assert.equal(view.members[1].avatarUrl, 'https://example.test/nam.png');
   assert.deepEqual(view.profileSkills, [
-    { id: 'react', rowId: undefined, skillId: 'skill-react', level: 3, interest: 3, note: 'Components' },
-    { id: 'docker', rowId: undefined, skillId: 'skill-docker', level: 2, interest: 2, note: 'Compose' },
+    {
+      id: 'react',
+      rowId: undefined,
+      skillId: 'skill-react',
+      level: 3,
+      interest: 3,
+      note: 'Components',
+      status: 'approved',
+      name: 'React',
+      category: 'Frontend',
+    },
+    {
+      id: 'docker',
+      rowId: undefined,
+      skillId: 'skill-docker',
+      level: 2,
+      interest: 2,
+      note: 'Compose',
+      status: 'approved',
+      name: 'Docker',
+      category: 'DevOps',
+    },
   ]);
 });
 
-test('composeSkillMapView excludes non-approved skills and preserves pending member skills', () => {
+test('composeSkillMapView excludes non-approved skills and preserves current user pending profile skills', () => {
   const view = composeSkillMapView({
     currentUserId: 'u-me',
     skills: [
@@ -127,7 +147,30 @@ test('composeSkillMapView excludes non-approved skills and preserves pending mem
     },
   ]);
   assert.deepEqual(view.members[1].pendingSkills, []);
-  assert.equal(view.profileSkills.some((skill) => skill.id === 'rust'), false);
+  assert.deepEqual(view.profileSkills, [
+    {
+      id: 'react',
+      rowId: undefined,
+      skillId: 'skill-react',
+      level: 3,
+      interest: 2,
+      note: 'Components',
+      status: 'approved',
+      name: 'React',
+      category: 'Frontend',
+    },
+    {
+      id: 'rust',
+      rowId: 'pending-row',
+      skillId: 'skill-rust',
+      level: 2,
+      interest: 3,
+      note: 'Want systems',
+      status: 'pending',
+      name: 'Rust',
+      category: 'Backend',
+    },
+  ]);
 });
 
 test('buildMemberSkillUpsert writes the selected scope and current user', () => {
@@ -184,15 +227,38 @@ test('saveProfileSkill creates a custom skill before attaching it to the current
   const db = {
     from(table) {
       return {
+        select(columns) {
+          calls.push({ table, op: 'select', columns });
+          return {
+            eq(column, value) {
+              calls.push({ table, op: 'eq', column, value });
+              return this;
+            },
+            maybeSingle() {
+              calls.push({ table, op: 'maybeSingle' });
+              return Promise.resolve({ data: null, error: null });
+            },
+          };
+        },
+        insert(row) {
+          calls.push({ table, op: 'insert', row });
+          return {
+            select(columns) {
+              calls.push({ table, op: 'insertSelect', columns });
+              return {
+                single() {
+                  return Promise.resolve({ data: { id: 'skill-kafka', name: row.name }, error: null });
+                },
+              };
+            },
+          };
+        },
         upsert(row, options) {
-          calls.push({ table, row, options });
+          calls.push({ table, op: 'upsert', row, options });
           return {
             select() {
               return {
                 single() {
-                  if (table === 'skills') {
-                    return Promise.resolve({ data: { id: 'skill-kafka', name: row.name }, error: null });
-                  }
                   return Promise.resolve({ data: { id: 'member-skill-1', ...row }, error: null });
                 },
               };
@@ -215,14 +281,119 @@ test('saveProfileSkill creates a custom skill before attaching it to the current
   });
 
   assert.equal(saved.skill_id, 'skill-kafka');
-  assert.deepEqual(calls.map((call) => call.table), ['skills', 'member_skills']);
-  assert.equal(calls[0].options.onConflict, 'workspace_id,name');
-  assert.equal(calls[0].row.is_preset, false);
-  assert.equal(calls[0].row.status, 'pending');
-  assert.equal(calls[0].row.source, 'proposal');
-  assert.equal(calls[0].row.description, 'Want production tasks');
-  assert.equal(calls[1].row.skill_id, 'skill-kafka');
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'upsert'), false);
+  const skillInsert = calls.find((call) => call.table === 'skills' && call.op === 'insert');
+  assert.equal(skillInsert.row.is_preset, false);
+  assert.equal(skillInsert.row.status, 'pending');
+  assert.equal(skillInsert.row.source, 'proposal');
+  assert.equal(skillInsert.row.description, 'Want production tasks');
+  assert.equal(calls.find((call) => call.table === 'member_skills' && call.op === 'upsert').row.skill_id, 'skill-kafka');
 });
+
+test('saveProfileSkill reuses an existing pending custom skill proposal', async () => {
+  const calls = [];
+  const db = makeSaveProfileSkillDb({
+    calls,
+    existingSkill: {
+      id: 'skill-kafka-pending',
+      name: 'Kafka Streams',
+      category: 'Backend',
+      status: 'pending',
+      canonical_skill_id: null,
+    },
+  });
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    skillName: 'Kafka Streams',
+    category: 'Backend',
+    level: 2,
+    interest: 3,
+    note: 'Want production tasks',
+  });
+
+  assert.equal(saved.skill_id, 'skill-kafka-pending');
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'insert'), false);
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'upsert'), false);
+});
+
+test('saveProfileSkill attaches approved duplicate names to the canonical approved skill', async () => {
+  const calls = [];
+  const db = makeSaveProfileSkillDb({
+    calls,
+    existingSkill: {
+      id: 'skill-kafka-approved',
+      name: 'Kafka Streams',
+      category: 'Backend',
+      status: 'approved',
+      canonical_skill_id: null,
+    },
+  });
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    skillName: 'Kafka Streams',
+    category: 'Backend',
+    level: 4,
+    interest: 2,
+    note: 'Production owner',
+  });
+
+  assert.equal(saved.skill_id, 'skill-kafka-approved');
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'insert'), false);
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'upsert'), false);
+});
+
+function makeSaveProfileSkillDb({ calls, existingSkill }) {
+  return {
+    from(table) {
+      return {
+        select(columns) {
+          calls.push({ table, op: 'select', columns });
+          return {
+            eq(column, value) {
+              calls.push({ table, op: 'eq', column, value });
+              return this;
+            },
+            maybeSingle() {
+              calls.push({ table, op: 'maybeSingle' });
+              return Promise.resolve({ data: existingSkill, error: null });
+            },
+          };
+        },
+        insert(row) {
+          calls.push({ table, op: 'insert', row });
+          return {
+            select(columns) {
+              calls.push({ table, op: 'insertSelect', columns });
+              return {
+                single() {
+                  return Promise.resolve({ data: { id: 'skill-new', ...row }, error: null });
+                },
+              };
+            },
+          };
+        },
+        upsert(row, options) {
+          calls.push({ table, op: 'upsert', row, options });
+          return {
+            select() {
+              return {
+                single() {
+                  return Promise.resolve({ data: { id: 'member-skill-1', ...row }, error: null });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+}
 
 test('loadSkillMapData syncs catalog rows and continues when catalog sync is blocked by RLS', async () => {
   const upserts = [];

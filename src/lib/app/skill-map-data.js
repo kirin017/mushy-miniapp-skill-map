@@ -204,11 +204,14 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
     };
   });
 
-  const profileSkills = memberSkillRows
+  const profileSkills = [...memberSkillRows, ...pendingMemberSkillRows]
     .filter((row) => row.user_id === currentUserId)
-    .sort((a, b) => compareSkills(skillsById.get(a.skill_id), skillsById.get(b.skill_id)))
+    .sort((a, b) => compareSkills(
+      skillsById.get(a.skill_id) || nonApprovedSkillsById.get(a.skill_id),
+      skillsById.get(b.skill_id) || nonApprovedSkillsById.get(b.skill_id),
+    ))
     .map((row) => {
-      const skill = skillsById.get(row.skill_id);
+      const skill = skillsById.get(row.skill_id) || nonApprovedSkillsById.get(row.skill_id);
       return {
         id: skillKey(skill.name),
         rowId: row.id,
@@ -216,6 +219,9 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
         level: clampInteger(row.level, 0, 4),
         interest: clampInteger(row.interest, 0, 3),
         note: row.note || '',
+        status: skill.status || 'approved',
+        name: skill.name,
+        category: skill.category,
       };
     });
 
@@ -266,14 +272,32 @@ export async function deleteProfileSkill({ db, workspaceId, userId, skillId }) {
 
 async function createCustomSkill({ db, workspaceId, userId, skillName, category, note }) {
   const row = buildCustomSkillUpsert({ workspaceId, userId, name: skillName, category, note });
+  const { data: existingSkill, error: selectError } = await db
+    .from('skills')
+    .select('id,name,category,is_preset,status,canonical_skill_id')
+    .eq('workspace_id', workspaceId)
+    .eq('name', row.name)
+    .maybeSingle();
+  if (selectError) throw new Error('find custom skill: ' + selectError.message);
+
+  if (existingSkill?.status === 'approved' || existingSkill?.status === 'pending') {
+    return existingSkill.id;
+  }
+  if (existingSkill?.status === 'merged' && existingSkill.canonical_skill_id) {
+    return existingSkill.canonical_skill_id;
+  }
+  if (existingSkill && existingSkill.status !== 'rejected') {
+    throw new Error(`create custom skill: existing skill "${row.name}" cannot be reused`);
+  }
+
   const { data, error } = await db
     .from('skills')
-    .upsert(row, {
-      onConflict: 'workspace_id,name',
-      ignoreDuplicates: false,
-    })
-    .select('id,name,category,is_preset')
+    .insert(row)
+    .select('id,name,category,is_preset,status')
     .single();
+  if (error && existingSkill?.status === 'rejected' && isUniqueViolation(error)) {
+    throw new Error(`create custom skill: rejected skill name "${row.name}" is still reserved`);
+  }
   if (error) throw new Error('create custom skill: ' + error.message);
   if (!data?.id) throw new Error('create custom skill: missing id');
   return data.id;
@@ -337,6 +361,11 @@ export function isCatalogSyncPermissionError(error) {
     || message.includes('permission denied')
     || message.includes('new row violates row-level security')
   );
+}
+
+function isUniqueViolation(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return String(error?.code || '') === '23505' || message.includes('duplicate key') || message.includes('unique constraint');
 }
 
 function isApprovedSkill(skill) {
