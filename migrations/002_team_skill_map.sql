@@ -152,7 +152,13 @@ create policy "skills_insert" on app_skill_map.skills
 for insert with check (
   created_by = auth.uid()
   and (
-    public.is_owner_workspace_member(workspace_id)
+    exists (
+      select 1
+      from public.workspace_members wm
+      where wm.workspace_id = skills.workspace_id
+        and wm.user_id = auth.uid()
+        and wm.role in ('owner', 'admin')
+    )
     or (
       public.can_access_app_data(workspace_id, 'skill-map')
       and source = 'proposal'
@@ -170,9 +176,21 @@ for insert with check (
 drop policy if exists "skills_update" on app_skill_map.skills;
 create policy "skills_update" on app_skill_map.skills
 for update using (
-  public.is_owner_workspace_member(workspace_id)
+  exists (
+    select 1
+    from public.workspace_members wm
+    where wm.workspace_id = skills.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
 ) with check (
-  public.is_owner_workspace_member(workspace_id)
+  exists (
+    select 1
+    from public.workspace_members wm
+    where wm.workspace_id = skills.workspace_id
+      and wm.user_id = auth.uid()
+      and wm.role in ('owner', 'admin')
+  )
 );
 
 drop policy if exists "skills_delete" on app_skill_map.skills;

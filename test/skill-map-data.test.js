@@ -211,7 +211,11 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(sql, /foreign key \(workspace_id, skill_id\)/);
   assert.match(sql, /references app_skill_map\.skills\(workspace_id, id\)/);
   assert.doesNotMatch(sql, /skill_id uuid not null references app_skill_map\.skills\(id\) on delete cascade/);
-  assert.match(skillsInsertPolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
+  assert.match(skillsInsertPolicy, /from public\.workspace_members wm/);
+  assert.match(skillsInsertPolicy, /wm\.workspace_id = skills\.workspace_id/);
+  assert.match(skillsInsertPolicy, /wm\.user_id = auth\.uid\(\)/);
+  assert.match(skillsInsertPolicy, /wm\.role in \('owner', 'admin'\)/);
+  assert.doesNotMatch(skillsInsertPolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
   assert.match(skillsInsertPolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
   assert.match(skillsInsertPolicy, /source = 'proposal'/);
   assert.match(skillsInsertPolicy, /for insert with check \(\s*created_by = auth\.uid\(\)\s+and\s+\(/);
@@ -222,7 +226,13 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(skillsInsertPolicy, /reviewed_by is null/);
   assert.match(skillsInsertPolicy, /reviewed_at is null/);
   assert.match(skillsInsertPolicy, /review_note = ''/);
-  assert.match(skillsUpdatePolicy, /for update using \(\s*public\.is_owner_workspace_member\(workspace_id\)\s*\) with check \(\s*public\.is_owner_workspace_member\(workspace_id\)\s*\);/);
+  assert.match(skillsUpdatePolicy, /for update using \(\s*exists \(/);
+  assert.match(skillsUpdatePolicy, /with check \(\s*exists \(/);
+  assert.match(skillsUpdatePolicy, /from public\.workspace_members wm/);
+  assert.match(skillsUpdatePolicy, /wm\.workspace_id = skills\.workspace_id/);
+  assert.match(skillsUpdatePolicy, /wm\.user_id = auth\.uid\(\)/);
+  assert.match(skillsUpdatePolicy, /wm\.role in \('owner', 'admin'\)/);
+  assert.doesNotMatch(skillsUpdatePolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
   assert.match(memberSkillsInsertPolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
   assert.match(memberSkillsInsertPolicy, /user_id = auth\.uid\(\)/);
   assert.match(memberSkillsInsertPolicy, /created_by = auth\.uid\(\)/);
