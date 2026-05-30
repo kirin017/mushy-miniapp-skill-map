@@ -426,6 +426,63 @@ export async function cleanupLegacySkills({ db, workspaceId, skills }) {
   return plan;
 }
 
+export async function approvePendingSkill({ db, workspaceId, reviewerId, skillId, description = '' }) {
+  const patch = {
+    status: 'approved',
+    source: 'proposal',
+    description: String(description || '').trim().slice(0, 500),
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+    review_note: 'Approved as workspace skill',
+  };
+  const { error } = await db
+    .from('skills')
+    .update(patch)
+    .eq('workspace_id', workspaceId)
+    .eq('id', skillId);
+  if (error) throw new Error('approve skill: ' + error.message);
+}
+
+export async function mergePendingSkill({ db, workspaceId, reviewerId, fromSkillId, toSkillId }) {
+  const move = await db
+    .from('member_skills')
+    .update({ skill_id: toSkillId })
+    .eq('workspace_id', workspaceId)
+    .eq('skill_id', fromSkillId);
+  if (move.error && !isUniqueViolation(move.error)) {
+    throw new Error('merge skill member rows: ' + move.error.message);
+  }
+
+  const patch = {
+    status: 'merged',
+    canonical_skill_id: toSkillId,
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+    review_note: `Merged into ${toSkillId}`,
+  };
+  const update = await db
+    .from('skills')
+    .update(patch)
+    .eq('workspace_id', workspaceId)
+    .eq('id', fromSkillId);
+  if (update.error) throw new Error('merge skill: ' + update.error.message);
+}
+
+export async function rejectPendingSkill({ db, workspaceId, reviewerId, skillId, note }) {
+  const patch = {
+    status: 'rejected',
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+    review_note: String(note || 'Rejected by workspace admin').trim().slice(0, 500),
+  };
+  const { error } = await db
+    .from('skills')
+    .update(patch)
+    .eq('workspace_id', workspaceId)
+    .eq('id', skillId);
+  if (error) throw new Error('reject skill: ' + error.message);
+}
+
 async function createCustomSkill({ db, workspaceId, userId, skillName, category, note }) {
   const row = buildCustomSkillUpsert({ workspaceId, userId, name: skillName, category, note });
   const { data: existingSkill, error: selectError } = await db

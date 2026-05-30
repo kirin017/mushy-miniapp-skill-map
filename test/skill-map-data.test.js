@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import {
   PRESET_SKILLS,
+  approvePendingSkill,
   buildCatalogSkillRows,
   buildCustomSkillUpsert,
   buildLegacySkillCleanupPlan,
@@ -14,6 +15,8 @@ import {
   composeSkillMapView,
   deleteProfileSkill,
   loadSkillMapData,
+  mergePendingSkill,
+  rejectPendingSkill,
   saveProfileSkill,
 } from '../src/lib/app/skill-map-data.js';
 
@@ -796,6 +799,82 @@ test('cleanupLegacySkills moves members and updates legacy skill review state', 
       filters: { workspace_id: 'ws-active', id: 'legacy-kafka' },
     },
   ]);
+});
+
+test('approvePendingSkill marks a proposal approved with audit metadata', async () => {
+  const calls = [];
+  const db = fakeUpdateDb(calls);
+
+  await approvePendingSkill({
+    db,
+    workspaceId: 'ws-1',
+    reviewerId: 'u-admin',
+    skillId: 'skill-kafka',
+    description: 'Kafka stream processing',
+  });
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0], {
+    table: 'skills',
+    patch: {
+      status: 'approved',
+      source: 'proposal',
+      description: 'Kafka stream processing',
+      reviewed_by: 'u-admin',
+      reviewed_at: calls[0].patch.reviewed_at,
+      review_note: 'Approved as workspace skill',
+    },
+    filters: { workspace_id: 'ws-1', id: 'skill-kafka' },
+  });
+  assert.match(calls[0].patch.reviewed_at, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('mergePendingSkill moves member skill rows and marks proposal merged', async () => {
+  const calls = [];
+  const db = fakeUpdateDb(calls);
+
+  await mergePendingSkill({
+    db,
+    workspaceId: 'ws-1',
+    reviewerId: 'u-admin',
+    fromSkillId: 'skill-reactjs',
+    toSkillId: 'skill-react',
+  });
+
+  assert.equal(calls[0].table, 'member_skills');
+  assert.deepEqual(calls[0].patch, { skill_id: 'skill-react' });
+  assert.deepEqual(calls[0].filters, { workspace_id: 'ws-1', skill_id: 'skill-reactjs' });
+  assert.equal(calls[1].table, 'skills');
+  assert.equal(calls[1].patch.status, 'merged');
+  assert.equal(calls[1].patch.canonical_skill_id, 'skill-react');
+  assert.equal(calls[1].patch.reviewed_by, 'u-admin');
+  assert.match(calls[1].patch.reviewed_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(calls[1].patch.review_note, 'Merged into skill-react');
+  assert.deepEqual(calls[1].filters, { workspace_id: 'ws-1', id: 'skill-reactjs' });
+});
+
+test('rejectPendingSkill marks proposal rejected with review note', async () => {
+  const calls = [];
+  const db = fakeUpdateDb(calls);
+
+  await rejectPendingSkill({
+    db,
+    workspaceId: 'ws-1',
+    reviewerId: 'u-admin',
+    skillId: 'skill-cloud',
+    note: 'Too broad',
+  });
+
+  assert.deepEqual(calls[0], {
+    table: 'skills',
+    patch: {
+      status: 'rejected',
+      reviewed_by: 'u-admin',
+      reviewed_at: calls[0].patch.reviewed_at,
+      review_note: 'Too broad',
+    },
+    filters: { workspace_id: 'ws-1', id: 'skill-cloud' },
+  });
 });
 
 function makeSaveProfileSkillDb({ calls, existingSkill, catalogSkill = null }) {
