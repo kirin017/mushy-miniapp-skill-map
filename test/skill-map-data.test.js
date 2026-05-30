@@ -186,6 +186,10 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(sql, /catalog_key text/);
   assert.match(sql, /status text not null default 'approved'/);
   assert.match(sql, /skill_type text not null default 'tool'/);
+  assert.match(sql, /description text not null default ''/);
+  assert.match(sql, /source text not null default 'legacy'/);
+  assert.match(sql, /reviewed_at timestamptz/);
+  assert.match(sql, /review_note text not null default ''/);
   assert.match(sql, /aliases jsonb not null default '\[\]'::jsonb/);
   assert.match(sql, /canonical_skill_id uuid/);
   assert.match(sql, /reviewed_by uuid references auth\.users\(id\)/);
