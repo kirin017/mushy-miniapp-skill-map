@@ -182,6 +182,8 @@ test('buildProfileSummary uses the current Mushy member instead of fallback mock
 
 test('skill map migration includes catalog review metadata', () => {
   const sql = readFileSync(new URL('../migrations/002_team_skill_map.sql', import.meta.url), 'utf8');
+  const skillsInsertPolicy = sql.match(/create policy "skills_insert"[\s\S]*?drop policy if exists "skills_update"/)?.[0] ?? '';
+  const skillsUpdatePolicy = sql.match(/create policy "skills_update"[\s\S]*?drop policy if exists "skills_delete"/)?.[0] ?? '';
 
   assert.match(sql, /catalog_key text/);
   assert.match(sql, /status text not null default 'approved'/);
@@ -199,4 +201,16 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(sql, /skills_canonical_same_workspace_fk/);
   assert.match(sql, /foreign key \(workspace_id, canonical_skill_id\)/);
   assert.match(sql, /references app_skill_map\.skills\(workspace_id, id\)/);
+  assert.match(sql, /on delete set null \(canonical_skill_id\)/);
+  assert.match(skillsInsertPolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
+  assert.match(skillsInsertPolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
+  assert.match(skillsInsertPolicy, /source = 'proposal'/);
+  assert.match(skillsInsertPolicy, /status = 'pending'/);
+  assert.match(skillsInsertPolicy, /is_preset = false/);
+  assert.match(skillsInsertPolicy, /catalog_key is null/);
+  assert.match(skillsInsertPolicy, /canonical_skill_id is null/);
+  assert.match(skillsInsertPolicy, /reviewed_by is null/);
+  assert.match(skillsInsertPolicy, /reviewed_at is null/);
+  assert.match(skillsInsertPolicy, /review_note = ''/);
+  assert.match(skillsUpdatePolicy, /for update using \(\s*public\.is_owner_workspace_member\(workspace_id\)\s*\) with check \(\s*public\.is_owner_workspace_member\(workspace_id\)\s*\);/);
 });

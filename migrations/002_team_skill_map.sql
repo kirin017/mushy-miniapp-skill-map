@@ -111,7 +111,7 @@ begin
       add constraint skills_canonical_same_workspace_fk
       foreign key (workspace_id, canonical_skill_id)
       references app_skill_map.skills(workspace_id, id)
-      on delete set null;
+      on delete set null (canonical_skill_id);
   end if;
 end $$;
 
@@ -130,15 +130,26 @@ for select using (
 drop policy if exists "skills_insert" on app_skill_map.skills;
 create policy "skills_insert" on app_skill_map.skills
 for insert with check (
-  public.can_access_app_data(workspace_id, 'skill-map')
+  public.is_owner_workspace_member(workspace_id)
+  or (
+    public.can_access_app_data(workspace_id, 'skill-map')
+    and source = 'proposal'
+    and status = 'pending'
+    and is_preset = false
+    and catalog_key is null
+    and canonical_skill_id is null
+    and reviewed_by is null
+    and reviewed_at is null
+    and review_note = ''
+  )
 );
 
 drop policy if exists "skills_update" on app_skill_map.skills;
 create policy "skills_update" on app_skill_map.skills
 for update using (
-  public.can_access_app_data(workspace_id, 'skill-map')
+  public.is_owner_workspace_member(workspace_id)
 ) with check (
-  public.can_access_app_data(workspace_id, 'skill-map')
+  public.is_owner_workspace_member(workspace_id)
 );
 
 drop policy if exists "skills_delete" on app_skill_map.skills;
