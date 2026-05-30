@@ -225,5 +225,8 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(memberSkillsInsertPolicy, /created_by = auth\.uid\(\)/);
   assert.match(memberSkillsUpdatePolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
   assert.match(memberSkillsUpdatePolicy, /user_id = auth\.uid\(\)/);
-  assert.match(memberSkillsUpdatePolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
+  assert.match(memberSkillsUpdatePolicy, /from public\.workspace_members wm/);
+  assert.match(memberSkillsUpdatePolicy, /wm\.workspace_id = member_skills\.workspace_id/);
+  assert.match(memberSkillsUpdatePolicy, /wm\.user_id = auth\.uid\(\)/);
+  assert.match(memberSkillsUpdatePolicy, /wm\.role in \('owner', 'admin'\)/);
 });

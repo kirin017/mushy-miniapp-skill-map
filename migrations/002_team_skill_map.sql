@@ -196,13 +196,25 @@ for update using (
   public.can_access_app_data(workspace_id, 'skill-map')
   and (
     user_id = auth.uid()
-    or public.is_owner_workspace_member(workspace_id)
+    or exists (
+      select 1
+      from public.workspace_members wm
+      where wm.workspace_id = member_skills.workspace_id
+        and wm.user_id = auth.uid()
+        and wm.role in ('owner', 'admin')
+    )
   )
 ) with check (
   public.can_access_app_data(workspace_id, 'skill-map')
   and (
     user_id = auth.uid()
-    or public.is_owner_workspace_member(workspace_id)
+    or exists (
+      select 1
+      from public.workspace_members wm
+      where wm.workspace_id = member_skills.workspace_id
+        and wm.user_id = auth.uid()
+        and wm.role in ('owner', 'admin')
+    )
   )
 );
 
