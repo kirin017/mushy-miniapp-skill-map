@@ -23,3 +23,13 @@ test('ProfileScreen keeps an always-available custom skill add path', () => {
   assert.match(profileScreenSource, /customSkill/);
   assert.doesNotMatch(profileScreenSource, /disabled=\{!availableSkills\.length \|\| saving\}/);
 });
+
+test('ProfileScreen renders pending profile skills missing from the approved catalog', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const profileScreenStart = source.indexOf('function ProfileScreen');
+  const reportScreenStart = source.indexOf('function ReportScreen');
+  const profileScreenSource = source.slice(profileScreenStart, reportScreenStart);
+
+  assert.doesNotMatch(profileScreenSource, /if\s*\(!skill\)\s*return null/);
+  assert.match(profileScreenSource, /Đang chờ duyệt/);
+});

@@ -978,9 +978,16 @@ function ProfileScreen({
       )}
 
       <div className="profile-skills">
-        {profileSkills.map(({ id, level, interest, note }) => {
-          const skill = skillMap.get(id);
-          if (!skill) return null;
+        {profileSkills.map((profileSkill) => {
+          const { id, level, interest, note, status } = profileSkill;
+          const skill = skillMap.get(id) || {
+            id,
+            name: profileSkill.name || id,
+            category: profileSkill.category || 'Custom',
+            icon: profileSkill.name?.slice(0, 2).toUpperCase() || 'SK',
+            iconUrl: null,
+            iconAlt: `${profileSkill.name || id} icon`,
+          };
           return (
             <article className="profile-skill" key={id}>
               <SkillIcon skill={skill} />
@@ -988,6 +995,7 @@ function ProfileScreen({
                 <strong>{skill.name}</strong>
                 <small>Level {level}</small>
                 <em>{LEVEL_LABELS[level]}</em>
+                {status === 'pending' && <small>Đang chờ duyệt</small>}
                 {note && <p>{note}</p>}
               </div>
               <b>Quan tâm {interest}</b>
