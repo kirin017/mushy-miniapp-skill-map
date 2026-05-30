@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   PRESET_SKILLS,
@@ -177,4 +178,17 @@ test('buildProfileSummary uses the current Mushy member instead of fallback mock
     learningCount: 1,
     featuredSkills: ['React', 'Docker'],
   });
+});
+
+test('skill map migration includes catalog review metadata', () => {
+  const sql = readFileSync(new URL('../migrations/002_team_skill_map.sql', import.meta.url), 'utf8');
+
+  assert.match(sql, /catalog_key text/);
+  assert.match(sql, /status text not null default 'approved'/);
+  assert.match(sql, /skill_type text not null default 'tool'/);
+  assert.match(sql, /aliases jsonb not null default '\[\]'::jsonb/);
+  assert.match(sql, /canonical_skill_id uuid references app_skill_map\.skills\(id\)/);
+  assert.match(sql, /reviewed_by uuid references auth\.users\(id\)/);
+  assert.match(sql, /idx_skills_workspace_status/);
+  assert.match(sql, /idx_skills_workspace_catalog_key/);
 });

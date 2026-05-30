@@ -9,6 +9,16 @@ create table if not exists app_skill_map.skills (
   name text not null check (char_length(name) between 1 and 80),
   category text not null default 'Custom' check (char_length(category) between 1 and 40),
   is_preset boolean not null default false,
+  catalog_key text,
+  status text not null default 'approved' check (status in ('approved', 'pending', 'rejected', 'merged')),
+  skill_type text not null default 'tool' check (skill_type in ('capability', 'tool')),
+  aliases jsonb not null default '[]'::jsonb,
+  description text not null default '' check (char_length(description) <= 500),
+  source text not null default 'legacy' check (source in ('catalog', 'proposal', 'legacy')),
+  canonical_skill_id uuid references app_skill_map.skills(id) on delete set null,
+  reviewed_by uuid references auth.users(id),
+  reviewed_at timestamptz,
+  review_note text not null default '' check (char_length(review_note) <= 500),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint skills_workspace_name_unique unique (workspace_id, name)
@@ -35,6 +45,36 @@ alter table app_skill_map.skills
   add column if not exists is_preset boolean not null default false;
 
 alter table app_skill_map.skills
+  add column if not exists catalog_key text;
+
+alter table app_skill_map.skills
+  add column if not exists status text not null default 'approved' check (status in ('approved', 'pending', 'rejected', 'merged'));
+
+alter table app_skill_map.skills
+  add column if not exists skill_type text not null default 'tool' check (skill_type in ('capability', 'tool'));
+
+alter table app_skill_map.skills
+  add column if not exists aliases jsonb not null default '[]'::jsonb;
+
+alter table app_skill_map.skills
+  add column if not exists description text not null default '' check (char_length(description) <= 500);
+
+alter table app_skill_map.skills
+  add column if not exists source text not null default 'legacy' check (source in ('catalog', 'proposal', 'legacy'));
+
+alter table app_skill_map.skills
+  add column if not exists canonical_skill_id uuid references app_skill_map.skills(id) on delete set null;
+
+alter table app_skill_map.skills
+  add column if not exists reviewed_by uuid references auth.users(id);
+
+alter table app_skill_map.skills
+  add column if not exists reviewed_at timestamptz;
+
+alter table app_skill_map.skills
+  add column if not exists review_note text not null default '' check (char_length(review_note) <= 500);
+
+alter table app_skill_map.skills
   add column if not exists updated_at timestamptz not null default now();
 
 alter table app_skill_map.member_skills
@@ -51,6 +91,9 @@ alter table app_skill_map.member_skills
 
 create index if not exists idx_skills_workspace on app_skill_map.skills (workspace_id);
 create index if not exists idx_skills_workspace_category on app_skill_map.skills (workspace_id, category);
+create index if not exists idx_skills_workspace_status on app_skill_map.skills (workspace_id, status);
+create index if not exists idx_skills_workspace_catalog_key on app_skill_map.skills (workspace_id, catalog_key) where catalog_key is not null;
+create index if not exists idx_skills_workspace_canonical on app_skill_map.skills (workspace_id, canonical_skill_id) where canonical_skill_id is not null;
 create index if not exists idx_member_skills_workspace on app_skill_map.member_skills (workspace_id);
 create index if not exists idx_member_skills_workspace_user on app_skill_map.member_skills (workspace_id, user_id);
 create index if not exists idx_member_skills_workspace_skill on app_skill_map.member_skills (workspace_id, skill_id);
