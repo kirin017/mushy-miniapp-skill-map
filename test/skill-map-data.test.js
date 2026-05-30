@@ -10,6 +10,7 @@ import {
   buildMemberSkillUpsert,
   buildPresetSkillRows,
   composeSkillMapView,
+  deleteProfileSkill,
   loadSkillMapData,
   saveProfileSkill,
 } from '../src/lib/app/skill-map-data.js';
@@ -466,6 +467,96 @@ test('saveProfileSkill attaches merged duplicate names to the canonical approved
   assert.equal(calls.find((call) => call.table === 'member_skills' && call.op === 'upsert').row.skill_id, 'skill-react');
 });
 
+test('saveProfileSkill updates an existing member skill row by row id', async () => {
+  const calls = [];
+  const db = {
+    from(table) {
+      return {
+        update(row) {
+          calls.push({ table, op: 'update', row });
+          return {
+            eq(column, value) {
+              calls.push({ table, op: 'eq', column, value });
+              return this;
+            },
+            select(columns) {
+              calls.push({ table, op: 'select', columns });
+              return {
+                single() {
+                  return Promise.resolve({
+                    data: {
+                      id: 'member-skill-merged',
+                      user_id: 'u-me',
+                      skill_id: 'skill-reactjs',
+                      ...row,
+                    },
+                    error: null,
+                  });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    memberSkillId: 'member-skill-merged',
+    level: 1,
+    interest: 3,
+    note: 'Adjusted merged row',
+  });
+
+  assert.equal(saved.id, 'member-skill-merged');
+  assert.equal(saved.skill_id, 'skill-reactjs');
+  assert.deepEqual(calls.filter((call) => call.op === 'eq'), [
+    { table: 'member_skills', op: 'eq', column: 'workspace_id', value: 'ws-active' },
+    { table: 'member_skills', op: 'eq', column: 'user_id', value: 'u-me' },
+    { table: 'member_skills', op: 'eq', column: 'id', value: 'member-skill-merged' },
+  ]);
+  assert.equal(calls.some((call) => call.op === 'upsert'), false);
+});
+
+test('deleteProfileSkill deletes an existing member skill row by row id', async () => {
+  const calls = [];
+  const db = {
+    from(table) {
+      return {
+        delete() {
+          calls.push({ table, op: 'delete' });
+          return {
+            eq(column, value) {
+              calls.push({ table, op: 'eq', column, value });
+              return this;
+            },
+            then(resolve) {
+              return Promise.resolve({ error: null }).then(resolve);
+            },
+          };
+        },
+      };
+    },
+  };
+
+  await deleteProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    memberSkillId: 'member-skill-pending',
+  });
+
+  assert.deepEqual(calls, [
+    { table: 'member_skills', op: 'delete' },
+    { table: 'member_skills', op: 'eq', column: 'workspace_id', value: 'ws-active' },
+    { table: 'member_skills', op: 'eq', column: 'user_id', value: 'u-me' },
+    { table: 'member_skills', op: 'eq', column: 'id', value: 'member-skill-pending' },
+  ]);
+});
+
 function makeSaveProfileSkillDb({ calls, existingSkill }) {
   return {
     from(table) {
@@ -625,6 +716,7 @@ test('skill map migration includes catalog review metadata', () => {
   const skillsUpdatePolicy = sql.match(/create policy "skills_update"[\s\S]*?drop policy if exists "skills_delete"/)?.[0] ?? '';
   const memberSkillsInsertPolicy = sql.match(/create policy "member_skills_insert"[\s\S]*?drop policy if exists "member_skills_update"/)?.[0] ?? '';
   const memberSkillsUpdatePolicy = sql.match(/create policy "member_skills_update"[\s\S]*?drop policy if exists "member_skills_delete"/)?.[0] ?? '';
+  const memberSkillsDeletePolicy = sql.match(/create policy "member_skills_delete"[\s\S]*?create or replace function app_skill_map\.set_updated_at/)?.[0] ?? '';
 
   assert.match(sql, /catalog_key text/);
   assert.match(sql, /status text not null default 'approved'/);
@@ -682,4 +774,11 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(memberSkillsUpdatePolicy, /wm\.workspace_id = member_skills\.workspace_id/);
   assert.match(memberSkillsUpdatePolicy, /wm\.user_id = auth\.uid\(\)/);
   assert.match(memberSkillsUpdatePolicy, /wm\.role in \('owner', 'admin'\)/);
+  assert.match(memberSkillsDeletePolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
+  assert.match(memberSkillsDeletePolicy, /user_id = auth\.uid\(\)\s*and created_by = auth\.uid\(\)/);
+  assert.match(memberSkillsDeletePolicy, /from public\.workspace_members wm/);
+  assert.match(memberSkillsDeletePolicy, /wm\.workspace_id = member_skills\.workspace_id/);
+  assert.match(memberSkillsDeletePolicy, /wm\.user_id = auth\.uid\(\)/);
+  assert.match(memberSkillsDeletePolicy, /wm\.role in \('owner', 'admin'\)/);
+  assert.doesNotMatch(memberSkillsDeletePolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
 });

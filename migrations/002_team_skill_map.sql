@@ -244,7 +244,17 @@ for update using (
 drop policy if exists "member_skills_delete" on app_skill_map.member_skills;
 create policy "member_skills_delete" on app_skill_map.member_skills
 for delete using (
-  public.is_owner_workspace_member(workspace_id)
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and (
+    (user_id = auth.uid() and created_by = auth.uid())
+    or exists (
+      select 1
+      from public.workspace_members wm
+      where wm.workspace_id = member_skills.workspace_id
+        and wm.user_id = auth.uid()
+        and wm.role in ('owner', 'admin')
+    )
+  )
 );
 
 create or replace function app_skill_map.set_updated_at() returns trigger

@@ -271,7 +271,25 @@ export async function loadSkillMapData({ db, listMembers, workspaceId, userId })
   return composeSkillMapView({ currentUserId: userId, skills, memberSkills, members });
 }
 
-export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note }) {
+export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note, memberSkillId }) {
+  if (memberSkillId) {
+    const row = {
+      level: clampInteger(level, 0, 4),
+      interest: clampInteger(interest, 0, 3),
+      note: String(note || '').trim(),
+    };
+    const { data, error } = await db
+      .from('member_skills')
+      .update(row)
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .eq('id', memberSkillId)
+      .select('id,user_id,skill_id,level,interest,note')
+      .single();
+    if (error) throw new Error('save profile skill: ' + error.message);
+    return data;
+  }
+
   const resolvedSkillId = skillId || await createCustomSkill({ db, workspaceId, userId, skillName, category, note });
   const row = buildMemberSkillUpsert({ workspaceId, userId, skillId: resolvedSkillId, level, interest, note });
   const { data, error } = await db
@@ -283,13 +301,18 @@ export async function saveProfileSkill({ db, workspaceId, userId, skillId, skill
   return data;
 }
 
-export async function deleteProfileSkill({ db, workspaceId, userId, skillId }) {
-  const { error } = await db
+export async function deleteProfileSkill({ db, workspaceId, userId, skillId, memberSkillId }) {
+  let query = db
     .from('member_skills')
     .delete()
     .eq('workspace_id', workspaceId)
-    .eq('user_id', userId)
-    .eq('skill_id', skillId);
+    .eq('user_id', userId);
+
+  query = memberSkillId
+    ? query.eq('id', memberSkillId)
+    : query.eq('skill_id', skillId);
+
+  const { error } = await query;
   if (error) throw new Error('delete profile skill: ' + error.message);
 }
 

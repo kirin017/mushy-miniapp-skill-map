@@ -151,8 +151,8 @@ function SkillMapApp({ ctx }) {
   }, [members, query, selected.name, selectedSkill]);
 
   async function handleSaveProfileSkill(draft) {
-    const skill = draft.customSkill ? null : skills.find((item) => item.id === draft.skillId);
-    if (!draft.customSkill && !skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để lưu');
+    const skill = draft.customSkill || draft.memberSkillId ? null : skills.find((item) => item.id === draft.skillId);
+    if (!draft.customSkill && !draft.memberSkillId && !skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để lưu');
     if (draft.customSkill && !draft.skillName?.trim()) throw new Error('Tên kỹ năng không được để trống');
     setSaving(true);
     try {
@@ -160,6 +160,7 @@ function SkillMapApp({ ctx }) {
         db,
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
+        memberSkillId: draft.memberSkillId || null,
         skillId: skill?.skillId || null,
         skillName: draft.customSkill ? draft.skillName : null,
         category: draft.customSkill ? draft.category : null,
@@ -173,16 +174,22 @@ function SkillMapApp({ ctx }) {
     }
   }
 
-  async function handleDeleteProfileSkill(skillKey) {
+  async function handleDeleteProfileSkill(profileSkill) {
+    const skillKey = typeof profileSkill === 'string' ? profileSkill : profileSkill?.id;
     const skill = skills.find((item) => item.id === skillKey);
-    if (!skill?.skillId) throw new Error('Kỹ năng chưa sẵn sàng để xóa');
+    const memberSkillId = typeof profileSkill === 'object' ? profileSkill.rowId : null;
+    const skillId = typeof profileSkill === 'object'
+      ? profileSkill.sourceSkillId || profileSkill.skillId || skill?.skillId
+      : skill?.skillId;
+    if (!memberSkillId && !skillId) throw new Error('Kỹ năng chưa sẵn sàng để xóa');
     setSaving(true);
     try {
       await deleteProfileSkill({
         db,
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
-        skillId: skill.skillId,
+        memberSkillId,
+        skillId,
       });
       await reload();
     } finally {
@@ -761,6 +768,7 @@ function ProfileScreen({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState(null);
   const skillMap = new Map(profileSkillCatalog.map((skill) => [skill.id, skill]));
+  const profileSkillMap = new Map(profileSkills.map((profileSkill) => [profileSkillKey(profileSkill), profileSkill]));
   const availableSkills = profileSkillCatalog.filter(
     (skill) => skill.skillId && !profileSkills.some((profileSkill) => profileSkill.id === skill.id),
   );
@@ -770,7 +778,7 @@ function ProfileScreen({
     skills: profileSkillCatalog,
   });
   const canSaveDraft = draft
-    ? !saving && (draft.customSkill ? draft.skillName.trim().length > 0 : !!draft.skillId)
+    ? !saving && (draft.customSkill ? draft.skillName.trim().length > 0 : !!(draft.memberSkillId || draft.skillId))
     : false;
 
   function openAddForm() {
@@ -788,9 +796,14 @@ function ProfileScreen({
   }
 
   function openEditForm(profileSkill) {
+    const skill = resolveProfileSkill(profileSkill, skillMap);
     setDraft({
       mode: 'edit',
+      memberSkillId: profileSkill.rowId || null,
+      profileSkillKey: profileSkillKey(profileSkill),
       skillId: profileSkill.id,
+      skill,
+      customSkill: false,
       level: profileSkill.level,
       interest: profileSkill.interest,
       note: profileSkill.note || '',
@@ -808,8 +821,8 @@ function ProfileScreen({
     }
   }
 
-  function requestRemoveSkill(skillId) {
-    setPendingDeleteId(skillId);
+  function requestRemoveSkill(profileSkill) {
+    setPendingDeleteId(profileSkillKey(profileSkill));
   }
 
   function cancelRemoveSkill() {
@@ -818,18 +831,21 @@ function ProfileScreen({
 
   async function confirmRemoveSkill() {
     if (!pendingDeleteId) return;
-    const skillId = pendingDeleteId;
+    const profileSkill = profileSkillMap.get(pendingDeleteId);
+    if (!profileSkill) return;
+    const deleteKey = pendingDeleteId;
     setError(null);
     try {
-      await onDeleteProfileSkill(skillId);
-      setDraft((current) => (current?.skillId === skillId ? null : current));
+      await onDeleteProfileSkill(profileSkill);
+      setDraft((current) => (current?.profileSkillKey === deleteKey ? null : current));
       setPendingDeleteId(null);
     } catch (deleteError) {
       setError(deleteError);
     }
   }
 
-  const pendingDeleteSkill = pendingDeleteId ? skillMap.get(pendingDeleteId) : null;
+  const pendingDeleteProfileSkill = pendingDeleteId ? profileSkillMap.get(pendingDeleteId) : null;
+  const pendingDeleteSkill = pendingDeleteProfileSkill ? resolveProfileSkill(pendingDeleteProfileSkill, skillMap) : null;
 
   return (
     <div className="screen compact-screen">
@@ -870,7 +886,7 @@ function ProfileScreen({
 
           <div className="skill-picker" role="listbox" aria-label="Chọn kỹ năng">
             {(draft.mode === 'edit'
-              ? [skillMap.get(draft.skillId)].filter(Boolean)
+              ? [draft.skill].filter(Boolean)
               : availableSkills
             ).map((skill) => (
               <button
@@ -980,16 +996,10 @@ function ProfileScreen({
       <div className="profile-skills">
         {profileSkills.map((profileSkill) => {
           const { id, level, interest, note, status } = profileSkill;
-          const skill = skillMap.get(id) || {
-            id,
-            name: profileSkill.name || id,
-            category: profileSkill.category || 'Custom',
-            icon: profileSkill.name?.slice(0, 2).toUpperCase() || 'SK',
-            iconUrl: null,
-            iconAlt: `${profileSkill.name || id} icon`,
-          };
+          const actionKey = profileSkillKey(profileSkill);
+          const skill = resolveProfileSkill(profileSkill, skillMap);
           return (
-            <article className="profile-skill" key={id}>
+            <article className="profile-skill" key={actionKey}>
               <SkillIcon skill={skill} />
               <div>
                 <strong>{skill.name}</strong>
@@ -999,8 +1009,8 @@ function ProfileScreen({
                 {note && <p>{note}</p>}
               </div>
               <b>Quan tâm {interest}</b>
-              <button type="button" onClick={() => openEditForm({ id, level, interest, note })} aria-label={`Sửa ${skill.name}`} disabled={saving}>Edit</button>
-              <button type="button" onClick={() => requestRemoveSkill(id)} aria-label={`Xóa ${skill.name}`} disabled={saving}>Del</button>
+              <button type="button" onClick={() => openEditForm(profileSkill)} aria-label={`Sửa ${skill.name}`} disabled={saving}>Edit</button>
+              <button type="button" onClick={() => requestRemoveSkill(profileSkill)} aria-label={`Xóa ${skill.name}`} disabled={saving}>Del</button>
             </article>
           );
         })}
@@ -1016,6 +1026,21 @@ function ProfileScreen({
       <button className="add-more" type="button" onClick={openAddForm} disabled={saving}>＋ Thêm kỹ năng khác</button>
     </div>
   );
+}
+
+function profileSkillKey(profileSkill) {
+  return profileSkill?.rowId || profileSkill?.sourceSkillId || profileSkill?.skillId || profileSkill?.id;
+}
+
+function resolveProfileSkill(profileSkill, skillMap) {
+  return skillMap.get(profileSkill.id) || {
+    id: profileSkill.id,
+    name: profileSkill.name || profileSkill.id,
+    category: profileSkill.category || 'Custom',
+    icon: profileSkill.name?.slice(0, 2).toUpperCase() || 'SK',
+    iconUrl: null,
+    iconAlt: `${profileSkill.name || profileSkill.id} icon`,
+  };
 }
 
 function ReportScreen({ skills, onBack }) {

@@ -33,3 +33,15 @@ test('ProfileScreen renders pending profile skills missing from the approved cat
   assert.doesNotMatch(profileScreenSource, /if\s*\(!skill\)\s*return null/);
   assert.match(profileScreenSource, /Đang chờ duyệt/);
 });
+
+test('ProfileScreen sends persisted member skill row ids for profile edit and delete actions', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const profileScreenStart = source.indexOf('function ProfileScreen');
+  const reportScreenStart = source.indexOf('function ReportScreen');
+  const profileScreenSource = source.slice(profileScreenStart, reportScreenStart);
+
+  assert.match(profileScreenSource, /memberSkillId:\s*profileSkill\.rowId/);
+  assert.match(profileScreenSource, /requestRemoveSkill\(profileSkill\)/);
+  assert.match(profileScreenSource, /onDeleteProfileSkill\(profileSkill\)/);
+  assert.match(profileScreenSource, /pendingDeleteProfileSkill/);
+});
