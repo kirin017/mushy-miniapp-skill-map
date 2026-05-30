@@ -186,7 +186,6 @@ test('skill map migration includes catalog review metadata', () => {
   const skillsUpdatePolicy = sql.match(/create policy "skills_update"[\s\S]*?drop policy if exists "skills_delete"/)?.[0] ?? '';
   const memberSkillsInsertPolicy = sql.match(/create policy "member_skills_insert"[\s\S]*?drop policy if exists "member_skills_update"/)?.[0] ?? '';
   const memberSkillsUpdatePolicy = sql.match(/create policy "member_skills_update"[\s\S]*?drop policy if exists "member_skills_delete"/)?.[0] ?? '';
-  const skillsProposalInsertBranch = skillsInsertPolicy.match(/public\.can_access_app_data\(workspace_id, 'skill-map'\)[\s\S]*?review_note = ''/)?.[0] ?? '';
 
   assert.match(sql, /catalog_key text/);
   assert.match(sql, /status text not null default 'approved'/);
@@ -201,6 +200,8 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(sql, /idx_skills_workspace_status/);
   assert.match(sql, /create unique index if not exists idx_skills_workspace_catalog_key/);
   assert.match(sql, /idx_skills_workspace_id_unique/);
+  assert.match(sql, /idx_skills_workspace_name_unique/);
+  assert.match(sql, /idx_member_skills_user_skill_unique/);
   assert.match(sql, /skills_canonical_same_workspace_fk/);
   assert.match(sql, /foreign key \(workspace_id, canonical_skill_id\)/);
   assert.match(sql, /references app_skill_map\.skills\(workspace_id, id\)/);
@@ -213,7 +214,7 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(skillsInsertPolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
   assert.match(skillsInsertPolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
   assert.match(skillsInsertPolicy, /source = 'proposal'/);
-  assert.match(skillsProposalInsertBranch, /created_by = auth\.uid\(\)/);
+  assert.match(skillsInsertPolicy, /for insert with check \(\s*created_by = auth\.uid\(\)\s+and\s+\(/);
   assert.match(skillsInsertPolicy, /status = 'pending'/);
   assert.match(skillsInsertPolicy, /is_preset = false/);
   assert.match(skillsInsertPolicy, /catalog_key is null/);

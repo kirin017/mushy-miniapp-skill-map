@@ -95,10 +95,12 @@ create index if not exists idx_skills_workspace_status on app_skill_map.skills (
 create unique index if not exists idx_skills_workspace_catalog_key on app_skill_map.skills (workspace_id, catalog_key) where catalog_key is not null;
 create unique index if not exists idx_skills_workspace_id_unique on app_skill_map.skills (workspace_id, id);
 create index if not exists idx_skills_workspace_canonical on app_skill_map.skills (workspace_id, canonical_skill_id) where canonical_skill_id is not null;
+create unique index if not exists idx_skills_workspace_name_unique on app_skill_map.skills (workspace_id, name);
 create index if not exists idx_member_skills_workspace on app_skill_map.member_skills (workspace_id);
 create index if not exists idx_member_skills_workspace_user on app_skill_map.member_skills (workspace_id, user_id);
 create index if not exists idx_member_skills_workspace_skill on app_skill_map.member_skills (workspace_id, skill_id);
 create index if not exists idx_member_skills_workspace_level on app_skill_map.member_skills (workspace_id, level desc);
+create unique index if not exists idx_member_skills_user_skill_unique on app_skill_map.member_skills (workspace_id, user_id, skill_id);
 
 alter table app_skill_map.member_skills
   drop constraint if exists member_skills_skill_id_fkey;
@@ -148,18 +150,20 @@ for select using (
 drop policy if exists "skills_insert" on app_skill_map.skills;
 create policy "skills_insert" on app_skill_map.skills
 for insert with check (
-  public.is_owner_workspace_member(workspace_id)
-  or (
-    public.can_access_app_data(workspace_id, 'skill-map')
-    and source = 'proposal'
-    and created_by = auth.uid()
-    and status = 'pending'
-    and is_preset = false
-    and catalog_key is null
-    and canonical_skill_id is null
-    and reviewed_by is null
-    and reviewed_at is null
-    and review_note = ''
+  created_by = auth.uid()
+  and (
+    public.is_owner_workspace_member(workspace_id)
+    or (
+      public.can_access_app_data(workspace_id, 'skill-map')
+      and source = 'proposal'
+      and status = 'pending'
+      and is_preset = false
+      and catalog_key is null
+      and canonical_skill_id is null
+      and reviewed_by is null
+      and reviewed_at is null
+      and review_note = ''
+    )
   )
 );
 
