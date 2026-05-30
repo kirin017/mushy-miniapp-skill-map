@@ -173,6 +173,95 @@ test('composeSkillMapView excludes non-approved skills and preserves current use
   ]);
 });
 
+test('composeSkillMapView resolves merged member skills to the approved canonical skill', () => {
+  const view = composeSkillMapView({
+    currentUserId: 'u-me',
+    skills: [
+      { id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true, status: 'approved' },
+      {
+        id: 'skill-reactjs',
+        name: 'ReactJS',
+        category: 'Frontend',
+        is_preset: false,
+        status: 'merged',
+        canonical_skill_id: 'skill-react',
+      },
+    ],
+    memberSkills: [
+      { id: 'merged-row', user_id: 'u-me', skill_id: 'skill-reactjs', level: 4, interest: 2, note: 'Legacy ReactJS row' },
+    ],
+    members: [
+      { user_id: 'u-me', full_name: 'Nguyen Ha My' },
+    ],
+  });
+
+  assert.equal(view.skills.find((skill) => skill.name === 'React').total, 1);
+  assert.equal(view.members[0].skills.react, 4);
+  assert.equal(view.members[0].interests.react, 2);
+  assert.equal(view.members[0].notes.react, 'Legacy ReactJS row');
+  assert.deepEqual(view.profileSkills, [
+    {
+      id: 'react',
+      rowId: 'merged-row',
+      skillId: 'skill-react',
+      sourceSkillId: 'skill-reactjs',
+      level: 4,
+      interest: 2,
+      note: 'Legacy ReactJS row',
+      status: 'approved',
+      name: 'React',
+      category: 'Frontend',
+    },
+  ]);
+});
+
+test('composeSkillMapView deduplicates direct and merged rows for the same member and canonical skill', () => {
+  const view = composeSkillMapView({
+    currentUserId: 'u-me',
+    skills: [
+      { id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true, status: 'approved' },
+      {
+        id: 'skill-reactjs',
+        name: 'ReactJS',
+        category: 'Frontend',
+        is_preset: false,
+        status: 'merged',
+        canonical_skill_id: 'skill-react',
+      },
+    ],
+    memberSkills: [
+      { id: 'direct-row', user_id: 'u-me', skill_id: 'skill-react', level: 3, interest: 1, note: 'Direct canonical' },
+      { id: 'merged-row', user_id: 'u-me', skill_id: 'skill-reactjs', level: 4, interest: 3, note: 'Stronger merged row' },
+      { id: 'u-2-direct', user_id: 'u-2', skill_id: 'skill-react', level: 4, interest: 2, note: 'Mentor' },
+      { id: 'u-2-merged', user_id: 'u-2', skill_id: 'skill-reactjs', level: 4, interest: 1, note: 'Tie merged row' },
+    ],
+    members: [
+      { user_id: 'u-me', full_name: 'Nguyen Ha My' },
+      { user_id: 'u-2', full_name: 'Dau Van Nam' },
+    ],
+  });
+
+  assert.equal(view.skills.find((skill) => skill.name === 'React').total, 2);
+  assert.equal(view.members[0].skills.react, 4);
+  assert.equal(view.members[0].notes.react, 'Stronger merged row');
+  assert.equal(view.members[1].skills.react, 4);
+  assert.equal(view.members[1].notes.react, 'Mentor');
+  assert.deepEqual(view.profileSkills, [
+    {
+      id: 'react',
+      rowId: 'merged-row',
+      skillId: 'skill-react',
+      sourceSkillId: 'skill-reactjs',
+      level: 4,
+      interest: 3,
+      note: 'Stronger merged row',
+      status: 'approved',
+      name: 'React',
+      category: 'Frontend',
+    },
+  ]);
+});
+
 test('buildMemberSkillUpsert writes the selected scope and current user', () => {
   assert.deepEqual(
     buildMemberSkillUpsert({

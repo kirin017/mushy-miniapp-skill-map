@@ -120,7 +120,29 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
   const nonApprovedSkillsById = new Map(skills.filter((skill) => !isApprovedSkill(skill)).map((skill) => [skill.id, skill]));
   const skillsById = new Map(skillRows.map((skill) => [skill.id, skill]));
   const skillKeyById = new Map(skillRows.map((skill) => [skill.id, skillKey(skill.name)]));
-  const memberSkillRows = memberSkills.filter((row) => skillsById.has(row.skill_id));
+  const mergedSkillsById = new Map(skills
+    .filter((skill) => skill?.status === 'merged' && skillsById.has(skill.canonical_skill_id))
+    .map((skill) => [skill.id, skill]));
+  const memberSkillRowsByMemberAndSkill = new Map();
+  for (const row of memberSkills) {
+    const directSkill = skillsById.get(row.skill_id);
+    const mergedSkill = mergedSkillsById.get(row.skill_id);
+    const canonicalSkillId = directSkill?.id || mergedSkill?.canonical_skill_id;
+    if (!canonicalSkillId) continue;
+
+    const resolvedRow = {
+      ...row,
+      skill_id: canonicalSkillId,
+      sourceSkillId: row.skill_id,
+      isDirectCanonical: row.skill_id === canonicalSkillId,
+    };
+    const key = `${row.user_id}\u0000${canonicalSkillId}`;
+    const existing = memberSkillRowsByMemberAndSkill.get(key);
+    if (!existing || shouldPreferMemberSkillRow(resolvedRow, existing)) {
+      memberSkillRowsByMemberAndSkill.set(key, resolvedRow);
+    }
+  }
+  const memberSkillRows = [...memberSkillRowsByMemberAndSkill.values()];
   const pendingMemberSkillRows = memberSkills.filter((row) => nonApprovedSkillsById.get(row.skill_id)?.status === 'pending');
 
   const membersById = new Map();
@@ -216,6 +238,7 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
         id: skillKey(skill.name),
         rowId: row.id,
         skillId: row.skill_id,
+        ...(row.sourceSkillId && row.sourceSkillId !== row.skill_id ? { sourceSkillId: row.sourceSkillId } : {}),
         level: clampInteger(row.level, 0, 4),
         interest: clampInteger(row.interest, 0, 3),
         note: row.note || '',
@@ -370,6 +393,17 @@ function isUniqueViolation(error) {
 
 function isApprovedSkill(skill) {
   return !skill?.status || skill.status === 'approved';
+}
+
+function shouldPreferMemberSkillRow(candidate, current) {
+  const candidateLevel = clampInteger(candidate.level, 0, 4);
+  const currentLevel = clampInteger(current.level, 0, 4);
+  if (candidateLevel !== currentLevel) return candidateLevel > currentLevel;
+  if (candidate.isDirectCanonical !== current.isDirectCanonical) return candidate.isDirectCanonical;
+
+  const candidateInterest = clampInteger(candidate.interest, 0, 3);
+  const currentInterest = clampInteger(current.interest, 0, 3);
+  return candidateInterest > currentInterest;
 }
 
 function presetForSkill(skill, fallbackKey) {
