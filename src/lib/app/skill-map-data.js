@@ -284,7 +284,15 @@ export async function loadSkillMapData({ db, listMembers, workspaceId, userId })
     await syncCatalogSkillRows({ db, workspaceId, userId });
   }
 
-  const skills = await fetchSkills(db, workspaceId);
+  let skills = await fetchSkills(db, workspaceId);
+  try {
+    const cleanupPlan = await cleanupLegacySkills({ db, workspaceId, skills });
+    if (cleanupPlan.memberSkillMoves.length || cleanupPlan.skillUpdates.length) {
+      skills = await fetchSkills(db, workspaceId);
+    }
+  } catch (error) {
+    if (!isCatalogSyncPermissionError(error)) throw error;
+  }
 
   const skillIds = skills.map((skill) => skill.id);
   const memberSkills = skillIds.length ? await fetchMemberSkills(db, workspaceId, skillIds) : [];
@@ -353,6 +361,69 @@ export async function deleteProfileSkill({ db, workspaceId, userId, skillId, mem
 
   const { error } = await query;
   if (error) throw new Error('delete profile skill: ' + error.message);
+}
+
+export function buildLegacySkillCleanupPlan({ skills = [] }) {
+  const canonicalByCatalogKey = new Map(
+    skills
+      .filter((skill) => skill?.catalog_key && isApprovedSkill(skill))
+      .map((skill) => [skill.catalog_key, skill]),
+  );
+  const memberSkillMoves = [];
+  const skillUpdates = [];
+
+  for (const skill of skills) {
+    if (!isLegacyCleanupCandidate(skill)) continue;
+
+    const match = matchCatalogSkill(skill.name);
+    const canonical = match.status === 'matched' ? canonicalByCatalogKey.get(match.key) : null;
+    if (canonical && canonical.id !== skill.id) {
+      memberSkillMoves.push({ fromSkillId: skill.id, toSkillId: canonical.id });
+      skillUpdates.push({
+        id: skill.id,
+        status: 'merged',
+        canonical_skill_id: canonical.id,
+        review_note: `Auto-merged by catalog alias: ${match.key}`,
+      });
+      continue;
+    }
+
+    skillUpdates.push({
+      id: skill.id,
+      status: 'pending',
+      source: 'legacy',
+      review_note: 'Needs workspace admin review',
+    });
+  }
+
+  return { memberSkillMoves, skillUpdates };
+}
+
+export async function cleanupLegacySkills({ db, workspaceId, skills }) {
+  const plan = buildLegacySkillCleanupPlan({ skills });
+
+  for (const move of plan.memberSkillMoves) {
+    const { error } = await db
+      .from('member_skills')
+      .update({ skill_id: move.toSkillId })
+      .eq('workspace_id', workspaceId)
+      .eq('skill_id', move.fromSkillId);
+    if (error && !isUniqueViolation(error)) {
+      throw new Error('cleanup move member skills: ' + error.message);
+    }
+  }
+
+  for (const update of plan.skillUpdates) {
+    const { id, ...patch } = update;
+    const { error } = await db
+      .from('skills')
+      .update(patch)
+      .eq('workspace_id', workspaceId)
+      .eq('id', id);
+    if (error) throw new Error('cleanup update skills: ' + error.message);
+  }
+
+  return plan;
 }
 
 async function createCustomSkill({ db, workspaceId, userId, skillName, category, note }) {
@@ -479,6 +550,14 @@ function isUniqueViolation(error) {
 
 function isApprovedSkill(skill) {
   return !skill?.status || skill.status === 'approved';
+}
+
+function isLegacyCleanupCandidate(skill) {
+  return skill
+    && !skill.catalog_key
+    && (!skill.status || skill.status === 'approved')
+    && skill.source !== 'catalog'
+    && skill.source !== 'proposal';
 }
 
 function uniqueValues(values) {

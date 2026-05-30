@@ -6,9 +6,11 @@ import {
   PRESET_SKILLS,
   buildCatalogSkillRows,
   buildCustomSkillUpsert,
+  buildLegacySkillCleanupPlan,
   buildProfileSummary,
   buildMemberSkillUpsert,
   buildPresetSkillRows,
+  cleanupLegacySkills,
   composeSkillMapView,
   deleteProfileSkill,
   loadSkillMapData,
@@ -724,6 +726,78 @@ test('deleteProfileSkill deletes all deduped member skill rows by row ids', asyn
   ]);
 });
 
+test('buildLegacySkillCleanupPlan maps obvious legacy skills and leaves unknown pending', () => {
+  const plan = buildLegacySkillCleanupPlan({
+    skills: [
+      { id: 'legacy-react', name: 'React.js', status: 'approved', catalog_key: null },
+      { id: 'legacy-kafka', name: 'Kafka Streams', status: 'approved', catalog_key: null },
+      { id: 'catalog-react', name: 'React', status: 'approved', catalog_key: 'frontend.react' },
+    ],
+  });
+
+  assert.deepEqual(plan.memberSkillMoves, [
+    { fromSkillId: 'legacy-react', toSkillId: 'catalog-react' },
+  ]);
+  assert.deepEqual(plan.skillUpdates, [
+    {
+      id: 'legacy-react',
+      status: 'merged',
+      canonical_skill_id: 'catalog-react',
+      review_note: 'Auto-merged by catalog alias: frontend.react',
+    },
+    {
+      id: 'legacy-kafka',
+      status: 'pending',
+      source: 'legacy',
+      review_note: 'Needs workspace admin review',
+    },
+  ]);
+});
+
+test('cleanupLegacySkills moves members and updates legacy skill review state', async () => {
+  const calls = [];
+  const db = fakeUpdateDb(calls);
+
+  const plan = await cleanupLegacySkills({
+    db,
+    workspaceId: 'ws-active',
+    skills: [
+      { id: 'legacy-react', name: 'React.js', status: 'approved', catalog_key: null },
+      { id: 'legacy-kafka', name: 'Kafka Streams', status: 'approved', catalog_key: null },
+      { id: 'catalog-react', name: 'React', status: 'approved', catalog_key: 'frontend.react' },
+    ],
+  });
+
+  assert.deepEqual(plan.memberSkillMoves, [
+    { fromSkillId: 'legacy-react', toSkillId: 'catalog-react' },
+  ]);
+  assert.deepEqual(calls, [
+    {
+      table: 'member_skills',
+      patch: { skill_id: 'catalog-react' },
+      filters: { workspace_id: 'ws-active', skill_id: 'legacy-react' },
+    },
+    {
+      table: 'skills',
+      patch: {
+        status: 'merged',
+        canonical_skill_id: 'catalog-react',
+        review_note: 'Auto-merged by catalog alias: frontend.react',
+      },
+      filters: { workspace_id: 'ws-active', id: 'legacy-react' },
+    },
+    {
+      table: 'skills',
+      patch: {
+        status: 'pending',
+        source: 'legacy',
+        review_note: 'Needs workspace admin review',
+      },
+      filters: { workspace_id: 'ws-active', id: 'legacy-kafka' },
+    },
+  ]);
+});
+
 function makeSaveProfileSkillDb({ calls, existingSkill, catalogSkill = null }) {
   return {
     from(table) {
@@ -774,6 +848,29 @@ function makeSaveProfileSkillDb({ calls, existingSkill, catalogSkill = null }) {
   };
 }
 
+function fakeUpdateDb(calls, { updateError = null } = {}) {
+  return {
+    from(table) {
+      const call = { table, patch: null, filters: {} };
+      calls.push(call);
+      return {
+        update(patch) {
+          call.patch = patch;
+          return {
+            eq(column, value) {
+              call.filters[column] = value;
+              return this;
+            },
+            then(resolve) {
+              return Promise.resolve({ data: null, error: updateError }).then(resolve);
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
 test('loadSkillMapData syncs catalog rows and continues when catalog sync is blocked by RLS', async () => {
   const upserts = [];
   const selects = [];
@@ -796,7 +893,15 @@ test('loadSkillMapData syncs catalog rows and continues when catalog sync is blo
             then(resolve) {
               if (table === 'skills') {
                 return Promise.resolve({
-                  data: [{ id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true, status: 'approved' }],
+                  data: [{
+                    id: 'skill-react',
+                    name: 'React',
+                    category: 'Frontend',
+                    is_preset: true,
+                    status: 'approved',
+                    catalog_key: 'frontend.react',
+                    source: 'catalog',
+                  }],
                   error: null,
                 }).then(resolve);
               }
