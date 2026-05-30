@@ -29,7 +29,7 @@ create table if not exists app_skill_map.member_skills (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   created_by uuid not null references auth.users(id),
   user_id uuid not null references auth.users(id) on delete cascade,
-  skill_id uuid not null references app_skill_map.skills(id) on delete cascade,
+  skill_id uuid not null,
   level integer not null default 0 check (level between 0 and 4),
   interest integer not null default 0 check (interest between 0 and 3),
   note text not null default '' check (char_length(note) <= 500),
@@ -100,6 +100,24 @@ create index if not exists idx_member_skills_workspace_user on app_skill_map.mem
 create index if not exists idx_member_skills_workspace_skill on app_skill_map.member_skills (workspace_id, skill_id);
 create index if not exists idx_member_skills_workspace_level on app_skill_map.member_skills (workspace_id, level desc);
 
+alter table app_skill_map.member_skills
+  drop constraint if exists member_skills_skill_id_fkey;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'member_skills_skill_same_workspace_fk'
+      and conrelid = 'app_skill_map.member_skills'::regclass
+  ) then
+    alter table app_skill_map.member_skills
+      add constraint member_skills_skill_same_workspace_fk
+      foreign key (workspace_id, skill_id)
+      references app_skill_map.skills(workspace_id, id)
+      on delete cascade;
+  end if;
+end $$;
+
 do $$
 begin
   if not exists (
@@ -168,14 +186,24 @@ drop policy if exists "member_skills_insert" on app_skill_map.member_skills;
 create policy "member_skills_insert" on app_skill_map.member_skills
 for insert with check (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and user_id = auth.uid()
+  and created_by = auth.uid()
 );
 
 drop policy if exists "member_skills_update" on app_skill_map.member_skills;
 create policy "member_skills_update" on app_skill_map.member_skills
 for update using (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and (
+    user_id = auth.uid()
+    or public.is_owner_workspace_member(workspace_id)
+  )
 ) with check (
   public.can_access_app_data(workspace_id, 'skill-map')
+  and (
+    user_id = auth.uid()
+    or public.is_owner_workspace_member(workspace_id)
+  )
 );
 
 drop policy if exists "member_skills_delete" on app_skill_map.member_skills;

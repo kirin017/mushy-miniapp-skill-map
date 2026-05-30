@@ -184,6 +184,8 @@ test('skill map migration includes catalog review metadata', () => {
   const sql = readFileSync(new URL('../migrations/002_team_skill_map.sql', import.meta.url), 'utf8');
   const skillsInsertPolicy = sql.match(/create policy "skills_insert"[\s\S]*?drop policy if exists "skills_update"/)?.[0] ?? '';
   const skillsUpdatePolicy = sql.match(/create policy "skills_update"[\s\S]*?drop policy if exists "skills_delete"/)?.[0] ?? '';
+  const memberSkillsInsertPolicy = sql.match(/create policy "member_skills_insert"[\s\S]*?drop policy if exists "member_skills_update"/)?.[0] ?? '';
+  const memberSkillsUpdatePolicy = sql.match(/create policy "member_skills_update"[\s\S]*?drop policy if exists "member_skills_delete"/)?.[0] ?? '';
 
   assert.match(sql, /catalog_key text/);
   assert.match(sql, /status text not null default 'approved'/);
@@ -202,6 +204,11 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(sql, /foreign key \(workspace_id, canonical_skill_id\)/);
   assert.match(sql, /references app_skill_map\.skills\(workspace_id, id\)/);
   assert.match(sql, /on delete set null \(canonical_skill_id\)/);
+  assert.match(sql, /drop constraint if exists member_skills_skill_id_fkey/);
+  assert.match(sql, /member_skills_skill_same_workspace_fk/);
+  assert.match(sql, /foreign key \(workspace_id, skill_id\)/);
+  assert.match(sql, /references app_skill_map\.skills\(workspace_id, id\)/);
+  assert.doesNotMatch(sql, /skill_id uuid not null references app_skill_map\.skills\(id\) on delete cascade/);
   assert.match(skillsInsertPolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
   assert.match(skillsInsertPolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
   assert.match(skillsInsertPolicy, /source = 'proposal'/);
@@ -213,4 +220,10 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(skillsInsertPolicy, /reviewed_at is null/);
   assert.match(skillsInsertPolicy, /review_note = ''/);
   assert.match(skillsUpdatePolicy, /for update using \(\s*public\.is_owner_workspace_member\(workspace_id\)\s*\) with check \(\s*public\.is_owner_workspace_member\(workspace_id\)\s*\);/);
+  assert.match(memberSkillsInsertPolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
+  assert.match(memberSkillsInsertPolicy, /user_id = auth\.uid\(\)/);
+  assert.match(memberSkillsInsertPolicy, /created_by = auth\.uid\(\)/);
+  assert.match(memberSkillsUpdatePolicy, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
+  assert.match(memberSkillsUpdatePolicy, /user_id = auth\.uid\(\)/);
+  assert.match(memberSkillsUpdatePolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
 });
