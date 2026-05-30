@@ -348,6 +348,35 @@ test('saveProfileSkill attaches approved duplicate names to the canonical approv
   assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'upsert'), false);
 });
 
+test('saveProfileSkill attaches merged duplicate names to the canonical approved skill', async () => {
+  const calls = [];
+  const db = makeSaveProfileSkillDb({
+    calls,
+    existingSkill: {
+      id: 'skill-reactjs',
+      name: 'ReactJS',
+      status: 'merged',
+      canonical_skill_id: 'skill-react',
+    },
+  });
+
+  const saved = await saveProfileSkill({
+    db,
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    skillName: 'ReactJS',
+    category: 'Frontend',
+    level: 3,
+    interest: 2,
+    note: 'Production UI',
+  });
+
+  assert.equal(saved.skill_id, 'skill-react');
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'insert'), false);
+  assert.equal(calls.some((call) => call.table === 'skills' && call.op === 'upsert'), false);
+  assert.equal(calls.find((call) => call.table === 'member_skills' && call.op === 'upsert').row.skill_id, 'skill-react');
+});
+
 function makeSaveProfileSkillDb({ calls, existingSkill }) {
   return {
     from(table) {
