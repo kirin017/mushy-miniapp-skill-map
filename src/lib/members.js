@@ -19,9 +19,10 @@
 
 import { dbPublic } from './supabase.js';
 
-export async function listMembers(workspaceId, { currentUserId, currentUserProfile } = {}) {
+export async function listMembers(workspaceId, { currentUserId, currentUserProfile, contextMemberProfiles = [], extraUserIds = [] } = {}) {
   const currentProfile = normalizeProfile(currentUserProfile, currentUserId);
-  if (!workspaceId) return currentProfile ? [currentProfile] : [];
+  const contextProfiles = contextMemberProfiles.map((profile) => normalizeProfile(profile)).filter(Boolean);
+  if (!workspaceId) return uniqueProfiles([...contextProfiles, currentProfile]);
 
   const { data: rows, error: mErr } = await dbPublic
     .from('workspace_members')
@@ -30,13 +31,19 @@ export async function listMembers(workspaceId, { currentUserId, currentUserProfi
   if (mErr) throw mErr;
 
   const memberRows = rows || [];
+  const contextProfilesById = new Map(contextProfiles.map((profile) => [profile.user_id, profile]));
   const profileMap = await getProfiles(uniqueValues([
     ...memberRows.map((r) => r.user_id),
     currentUserId,
+    ...extraUserIds,
+    ...contextProfiles.map((profile) => profile.user_id),
   ]));
 
   const members = memberRows.map((r) => {
-    const profile = mergeProfile(profileMap[r.user_id], r.user_id === currentUserId ? currentProfile : null);
+    const profile = mergeProfile(
+      profileMap[r.user_id],
+      mergeProfile(contextProfilesById.get(r.user_id), r.user_id === currentUserId ? currentProfile : null),
+    );
     return {
       user_id: r.user_id,
       role: r.role,
@@ -47,10 +54,12 @@ export async function listMembers(workspaceId, { currentUserId, currentUserProfi
     };
   });
 
-  if (currentProfile && !members.some((member) => member.user_id === currentProfile.user_id)) {
-    const profile = mergeProfile(profileMap[currentProfile.user_id], currentProfile);
+  for (const userId of uniqueValues([...extraUserIds, ...contextProfiles.map((profile) => profile.user_id), currentProfile?.user_id])) {
+    if (members.some((member) => member.user_id === userId)) continue;
+    const profile = mergeProfile(profileMap[userId], mergeProfile(contextProfilesById.get(userId), userId === currentUserId ? currentProfile : null));
+    if (!hasProfileData(profile) && userId !== currentUserId) continue;
     members.push({
-      user_id: currentProfile.user_id,
+      user_id: userId,
       role: profile.role || 'member',
       full_name: profile.full_name,
       handle: profile.handle,
@@ -97,6 +106,18 @@ function mergeProfile(dbProfile, contextProfile) {
 
 function uniqueValues(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function uniqueProfiles(profiles) {
+  const profilesById = new Map();
+  for (const profile of profiles.filter(Boolean)) {
+    profilesById.set(profile.user_id, mergeProfile(profilesById.get(profile.user_id), profile));
+  }
+  return [...profilesById.values()];
+}
+
+function hasProfileData(profile) {
+  return !!(profile?.full_name || profile?.handle || profile?.avatar_url || profile?.work_phone);
 }
 
 function firstText(...values) {

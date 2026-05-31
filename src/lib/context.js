@@ -79,6 +79,121 @@ export function normalizeContextProfile(ctx = {}) {
   };
 }
 
+export function normalizeContextMemberProfiles(ctx = {}) {
+  const memberCandidates = [
+    ctx.members,
+    ctx.teamMembers,
+    ctx.workspaceMembers,
+    ctx.memberProfiles,
+    ctx.userProfiles,
+    ctx.profiles,
+    ctx.team?.members,
+    ctx.workspace?.members,
+    ctx.currentWorkspace?.members,
+  ];
+  const mapCandidates = [
+    ctx.membersById,
+    ctx.memberProfilesById,
+    ctx.userProfilesById,
+    ctx.profilesById,
+    ctx.team?.membersById,
+    ctx.workspace?.membersById,
+    ctx.currentWorkspace?.membersById,
+  ];
+  const profilesById = new Map();
+
+  for (const candidate of memberCandidates) {
+    for (const member of toArray(candidate)) {
+      const profile = normalizeProfileShape(member);
+      if (profile) profilesById.set(profile.user_id, mergeProfile(profilesById.get(profile.user_id), profile));
+    }
+  }
+
+  for (const candidate of mapCandidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+    for (const [userId, member] of Object.entries(candidate)) {
+      const memberObject = member && typeof member === 'object' ? member : {};
+      const profile = normalizeProfileShape({ userId, ...memberObject });
+      if (profile) profilesById.set(profile.user_id, mergeProfile(profilesById.get(profile.user_id), profile));
+    }
+  }
+
+  const currentProfile = normalizeContextProfile(ctx);
+  if (currentProfile) {
+    profilesById.set(currentProfile.user_id, mergeProfile(profilesById.get(currentProfile.user_id), currentProfile));
+  }
+
+  return [...profilesById.values()];
+}
+
+function normalizeProfileShape(source = {}) {
+  const userId = firstText(source.user_id, source.userId, source.id, source.uid);
+  if (!userId) return null;
+  const fullName = firstText(
+    source.full_name,
+    source.fullName,
+    source.display_name,
+    source.displayName,
+    source.name,
+    combineName(source.first_name || source.firstName, source.last_name || source.lastName),
+    source.profile?.full_name,
+    source.profile?.fullName,
+    source.profile?.displayName,
+    source.profile?.name,
+  );
+  const email = firstText(source.email, source.profile?.email);
+  const handle = normalizeHandle(firstText(
+    source.handle,
+    source.username,
+    source.userName,
+    source.profile?.handle,
+    source.profile?.username,
+    email ? email.split('@')[0] : null,
+  ));
+  const avatarUrl = firstImageUrl(
+    source.avatar_url,
+    source.avatarUrl,
+    source.photo_url,
+    source.photoUrl,
+    source.photoURL,
+    source.image_url,
+    source.imageUrl,
+    source.picture,
+    source.avatar,
+    source.profile?.avatar_url,
+    source.profile?.avatarUrl,
+    source.profile?.photoUrl,
+    source.profile?.picture,
+  );
+
+  return {
+    user_id: userId,
+    role: firstText(source.role) || null,
+    full_name: fullName || null,
+    handle: handle || null,
+    avatar_url: avatarUrl || null,
+    work_phone: firstText(source.work_phone, source.workPhone, source.phone, source.profile?.work_phone, source.profile?.workPhone) || null,
+  };
+}
+
+function toArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object') return Object.values(value);
+  return [];
+}
+
+function mergeProfile(base, override) {
+  return {
+    user_id: firstText(override?.user_id, base?.user_id) || null,
+    role: firstText(override?.role, base?.role) || null,
+    full_name: firstText(override?.full_name, base?.full_name) || null,
+    handle: firstText(override?.handle, base?.handle) || null,
+    avatar_url: firstText(override?.avatar_url, base?.avatar_url) || null,
+    work_phone: firstText(override?.work_phone, base?.work_phone) || null,
+  };
+}
+
 function firstText(...values) {
   for (const value of values) {
     const text = String(value ?? '').trim();

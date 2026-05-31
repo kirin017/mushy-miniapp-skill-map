@@ -5,7 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import './App.css';
 import ScopeSwitcher from './components/ScopeSwitcher.jsx';
 import ShareManageModal from './components/ShareManageModal.jsx';
-import { getContext, normalizeContextProfile } from './lib/context.js';
+import { getContext, normalizeContextMemberProfiles, normalizeContextProfile } from './lib/context.js';
 import { db } from './lib/supabase.js';
 import { listMembers } from './lib/members.js';
 import { useActiveScope, useDefaultScopeInitializer, useIsCurrentWorkspaceAdmin } from './lib/sharing.js';
@@ -57,6 +57,7 @@ function SkillMapApp({ ctx }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const currentUserProfile = useMemo(() => normalizeContextProfile(ctx), [ctx]);
+  const contextMemberProfiles = useMemo(() => normalizeContextMemberProfiles(ctx), [ctx]);
 
   const skills = view.skills.length ? view.skills : INITIAL_SKILLS;
   const members = view.members;
@@ -121,6 +122,7 @@ function SkillMapApp({ ctx }) {
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
         currentUserProfile,
+        contextMemberProfiles,
       });
       setView(next);
       if (next.skills.length && !next.skills.some((skill) => skill.id === selectedSkill)) {
@@ -132,7 +134,7 @@ function SkillMapApp({ ctx }) {
     } finally {
       setLoading(false);
     }
-  }, [activeScope.workspaceId, ctx.userId, currentUserProfile, selectedSkill]);
+  }, [activeScope.workspaceId, ctx.userId, currentUserProfile, contextMemberProfiles, selectedSkill]);
 
   useEffect(() => {
     reload();

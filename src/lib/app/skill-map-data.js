@@ -120,7 +120,7 @@ export function buildProfileSummary({ currentMember, profileSkills = [], skills 
   };
 }
 
-export function composeSkillMapView({ currentUserId, currentUserProfile = null, skills = [], memberSkills = [], members = [] }) {
+export function composeSkillMapView({ currentUserId, currentUserProfile = null, contextMemberProfiles = [], skills = [], memberSkills = [], members = [] }) {
   const skillRows = skills.filter(isApprovedSkill).sort(compareSkills);
   const nonApprovedSkillsById = new Map(skills.filter((skill) => !isApprovedSkill(skill)).map((skill) => [skill.id, skill]));
   const skillsById = new Map(skillRows.map((skill) => [skill.id, skill]));
@@ -171,7 +171,7 @@ export function composeSkillMapView({ currentUserId, currentUserProfile = null, 
 
   const membersById = new Map();
   const currentProfileMember = normalizeMemberProfile(currentUserProfile, currentUserId);
-  for (const member of [...members, currentProfileMember].filter(Boolean)) {
+  for (const member of [...members, ...contextMemberProfiles, currentProfileMember].filter(Boolean)) {
     const normalized = normalizeMemberProfile(member, currentUserId);
     if (!normalized) continue;
     const existing = membersById.get(normalized.userId);
@@ -286,7 +286,7 @@ export function composeSkillMapView({ currentUserId, currentUserProfile = null, 
   };
 }
 
-export async function loadSkillMapData({ db, listMembers, workspaceId, userId, currentUserProfile = null }) {
+export async function loadSkillMapData({ db, listMembers, workspaceId, userId, currentUserProfile = null, contextMemberProfiles = [] }) {
   if (userId) {
     await syncCatalogSkillRows({ db, workspaceId, userId });
   }
@@ -303,8 +303,14 @@ export async function loadSkillMapData({ db, listMembers, workspaceId, userId, c
 
   const skillIds = skills.map((skill) => skill.id);
   const memberSkills = skillIds.length ? await fetchMemberSkills(db, workspaceId, skillIds) : [];
-  const members = await listMembers(workspaceId, { currentUserId: userId, currentUserProfile });
-  return composeSkillMapView({ currentUserId: userId, currentUserProfile, skills, memberSkills, members });
+  const memberSkillUserIds = uniqueValues(memberSkills.map((row) => row.user_id));
+  const members = await listMembers(workspaceId, {
+    currentUserId: userId,
+    currentUserProfile,
+    contextMemberProfiles,
+    extraUserIds: memberSkillUserIds,
+  });
+  return composeSkillMapView({ currentUserId: userId, currentUserProfile, contextMemberProfiles, skills, memberSkills, members });
 }
 
 export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note, memberSkillId, memberSkillIds }) {

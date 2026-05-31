@@ -19,7 +19,7 @@ import {
   rejectPendingSkill,
   saveProfileSkill,
 } from '../src/lib/app/skill-map-data.js';
-import { normalizeContextProfile } from '../src/lib/context.js';
+import { normalizeContextMemberProfiles, normalizeContextProfile } from '../src/lib/context.js';
 
 test('preset skills are derived from the approved standard catalog with visual assets where known', () => {
   assert.equal(PRESET_SKILLS.length >= 50, true);
@@ -140,6 +140,57 @@ test('normalizeContextProfile accepts main app profile shapes', () => {
   );
 });
 
+test('normalizeContextMemberProfiles accepts main app team member shapes', () => {
+  assert.deepEqual(
+    normalizeContextMemberProfiles({
+      userId: 'u-me',
+      userProfile: { fullName: 'Tran Minh Duc' },
+      workspaceMembers: [
+        {
+          userId: 'u-2',
+          role: 'member',
+          profile: {
+            fullName: 'Dau Van Nam',
+            avatarUrl: 'https://example.test/nam.png',
+          },
+        },
+      ],
+      memberProfilesById: {
+        'u-3': {
+          full_name: 'Le Thu Ha',
+          avatar_url: 'https://example.test/ha.png',
+        },
+      },
+    }),
+    [
+      {
+        user_id: 'u-2',
+        role: 'member',
+        full_name: 'Dau Van Nam',
+        handle: null,
+        avatar_url: 'https://example.test/nam.png',
+        work_phone: null,
+      },
+      {
+        user_id: 'u-3',
+        role: null,
+        full_name: 'Le Thu Ha',
+        handle: null,
+        avatar_url: 'https://example.test/ha.png',
+        work_phone: null,
+      },
+      {
+        user_id: 'u-me',
+        role: null,
+        full_name: 'Tran Minh Duc',
+        handle: null,
+        avatar_url: null,
+        work_phone: null,
+      },
+    ],
+  );
+});
+
 test('composeSkillMapView syncs current member from app context when workspace members miss it', () => {
   const view = composeSkillMapView({
     currentUserId: 'u-me',
@@ -168,6 +219,105 @@ test('composeSkillMapView syncs current member from app context when workspace m
   assert.equal(summary.name, 'Tran Minh Duc');
   assert.equal(summary.handle, '@duc');
   assert.equal(summary.avatarUrl, 'https://example.test/duc.png');
+});
+
+test('composeSkillMapView syncs teammate profiles from app context', () => {
+  const view = composeSkillMapView({
+    currentUserId: 'u-me',
+    contextMemberProfiles: [
+      {
+        user_id: 'u-2',
+        full_name: 'Dau Van Nam',
+        avatar_url: 'https://example.test/nam.png',
+      },
+    ],
+    skills: [
+      { id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true, status: 'approved' },
+    ],
+    memberSkills: [
+      { user_id: 'u-2', skill_id: 'skill-react', level: 4, interest: 2, note: '' },
+    ],
+    members: [],
+  });
+
+  const teammate = view.members.find((member) => member.userId === 'u-2');
+  assert.equal(teammate.name, 'Dau Van Nam');
+  assert.equal(teammate.avatarUrl, 'https://example.test/nam.png');
+  assert.equal(teammate.skills.react, 4);
+});
+
+test('loadSkillMapData passes skill-row user ids and app team profiles to member lookup', async () => {
+  const listMemberCalls = [];
+  const db = {
+    from(table) {
+      return {
+        upsert() {
+          return Promise.resolve({ data: null, error: null });
+        },
+        select() {
+          const query = {
+            eq() {
+              return query;
+            },
+            in() {
+              if (table === 'member_skills') {
+                return Promise.resolve({
+                  data: [{ user_id: 'u-2', skill_id: 'skill-react', level: 4, interest: 2, note: '' }],
+                  error: null,
+                });
+              }
+              return Promise.resolve({ data: [], error: null });
+            },
+            then(resolve) {
+              if (table === 'skills') {
+                return Promise.resolve({
+                  data: [{
+                    id: 'skill-react',
+                    name: 'React',
+                    category: 'Frontend',
+                    is_preset: true,
+                    status: 'approved',
+                    catalog_key: 'frontend.react',
+                    source: 'catalog',
+                  }],
+                  error: null,
+                }).then(resolve);
+              }
+              return Promise.resolve({ data: [], error: null }).then(resolve);
+            },
+          };
+          return query;
+        },
+      };
+    },
+  };
+  const contextMemberProfiles = [
+    { user_id: 'u-2', full_name: 'Dau Van Nam', avatar_url: 'https://example.test/nam.png' },
+  ];
+
+  const view = await loadSkillMapData({
+    db,
+    listMembers: async (workspaceId, options) => {
+      listMemberCalls.push({ workspaceId, options });
+      return [];
+    },
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    contextMemberProfiles,
+  });
+
+  assert.deepEqual(listMemberCalls, [
+    {
+      workspaceId: 'ws-active',
+      options: {
+        currentUserId: 'u-me',
+        currentUserProfile: null,
+        contextMemberProfiles,
+        extraUserIds: ['u-2'],
+      },
+    },
+  ]);
+  assert.equal(view.members.find((member) => member.userId === 'u-2').name, 'Dau Van Nam');
 });
 
 test('composeSkillMapView labels missing member profiles as unsynced instead of mock identity', () => {
@@ -1128,6 +1278,8 @@ test('loadSkillMapData passes app profile through when member lookup returns no 
       options: {
         currentUserId: 'u-me',
         currentUserProfile,
+        contextMemberProfiles: [],
+        extraUserIds: [],
       },
     },
   ]);
