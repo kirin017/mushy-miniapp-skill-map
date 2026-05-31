@@ -1084,6 +1084,7 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(sql, /reviewed_by uuid references auth\.users\(id\)/);
   assert.match(sql, /idx_skills_workspace_status/);
   assert.match(sql, /create unique index if not exists idx_skills_workspace_catalog_key/);
+  assert.doesNotMatch(sql, /idx_skills_workspace_catalog_key[\s\S]*where catalog_key is not null/i);
   assert.match(sql, /idx_skills_workspace_id_unique/);
   assert.match(sql, /idx_skills_workspace_name_unique/);
   assert.match(sql, /idx_member_skills_user_skill_unique/);
@@ -1135,4 +1136,12 @@ test('skill map migration includes catalog review metadata', () => {
   assert.match(memberSkillsDeletePolicy, /wm\.user_id = auth\.uid\(\)/);
   assert.match(memberSkillsDeletePolicy, /wm\.role in \('owner', 'admin'\)/);
   assert.doesNotMatch(memberSkillsDeletePolicy, /public\.is_owner_workspace_member\(workspace_id\)/);
+});
+
+test('catalog upsert repair migration creates a non-partial conflict index', () => {
+  const sql = readFileSync(new URL('../migrations/003_fix_skill_catalog_upsert_constraint.sql', import.meta.url), 'utf8');
+
+  assert.match(sql, /drop index if exists app_skill_map\.idx_skills_workspace_catalog_key/);
+  assert.match(sql, /create unique index if not exists idx_skills_workspace_catalog_key\s+on app_skill_map\.skills \(workspace_id, catalog_key\)/i);
+  assert.doesNotMatch(sql, /where catalog_key is not null/i);
 });

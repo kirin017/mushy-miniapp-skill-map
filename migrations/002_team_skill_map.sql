@@ -92,7 +92,7 @@ alter table app_skill_map.member_skills
 create index if not exists idx_skills_workspace on app_skill_map.skills (workspace_id);
 create index if not exists idx_skills_workspace_category on app_skill_map.skills (workspace_id, category);
 create index if not exists idx_skills_workspace_status on app_skill_map.skills (workspace_id, status);
-create unique index if not exists idx_skills_workspace_catalog_key on app_skill_map.skills (workspace_id, catalog_key) where catalog_key is not null;
+create unique index if not exists idx_skills_workspace_catalog_key on app_skill_map.skills (workspace_id, catalog_key);
 create unique index if not exists idx_skills_workspace_id_unique on app_skill_map.skills (workspace_id, id);
 create index if not exists idx_skills_workspace_canonical on app_skill_map.skills (workspace_id, canonical_skill_id) where canonical_skill_id is not null;
 create unique index if not exists idx_skills_workspace_name_unique on app_skill_map.skills (workspace_id, name);
