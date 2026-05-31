@@ -368,7 +368,12 @@ function ShellRequired({ error }) {
 
 function ProfileAvatar({ summary }) {
   if (summary.avatarUrl) {
-    return <img className="profile-avatar" src={summary.avatarUrl} alt="" />;
+    return (
+      <span className="profile-avatar profile-avatar--image">
+        <img src={summary.avatarUrl} alt="" onError={handleAssetFallback} />
+        <span className="profile-avatar-fallback" hidden>{summary.avatar}</span>
+      </span>
+    );
   }
   return <span className="profile-avatar">{summary.avatar}</span>;
 }
@@ -377,13 +382,16 @@ function SkillIcon({ skill, className = '', compact = false }) {
   const classes = ['skill-icon', compact ? 'skill-icon--compact' : '', className].filter(Boolean).join(' ');
   return (
     <span className={classes} aria-hidden="true">
-      {skill.iconUrl ? (
-        <img src={skill.iconUrl} alt="" loading="lazy" />
-      ) : (
-        <span className="skill-icon-fallback">{skill.icon}</span>
-      )}
+      {skill.iconUrl && <img src={skill.iconUrl} alt="" loading="lazy" onError={handleAssetFallback} />}
+      <span className="skill-icon-fallback" hidden={!!skill.iconUrl}>{skill.icon}</span>
     </span>
   );
+}
+
+function handleAssetFallback(event) {
+  const image = event.currentTarget;
+  image.style.display = 'none';
+  image.nextElementSibling?.removeAttribute('hidden');
 }
 
 function Overview({

@@ -583,6 +583,10 @@ button {
   object-fit: contain;
 }
 
+.skill-icon img[src*='/000000'] {
+  filter: invert(1) drop-shadow(0 0 10px rgba(247, 241, 227, 0.3));
+}
+
 .skill-icon-fallback {
   color: var(--mushy-red-dark);
   display: block;
@@ -590,6 +594,11 @@ button {
   font-weight: 900;
   line-height: 1;
   margin: 0;
+}
+
+.skill-icon-fallback[hidden],
+.profile-avatar-fallback[hidden] {
+  display: none;
 }
 
 .skill-icon--compact {
@@ -2251,7 +2260,7 @@ body::before {
   animation: taste-marquee 28s linear infinite;
 }
 
-.skill-marquee span {
+.skill-marquee > div > span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2373,6 +2382,25 @@ body::before {
   color: var(--taste-lime);
 }
 
+.profile-avatar--image {
+  overflow: hidden;
+}
+
+.profile-avatar--image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.profile-avatar-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
 .level-0 { background: rgba(247, 241, 227, 0.14); color: var(--taste-muted); }
 .level-1 { background: rgba(136, 213, 210, 0.35); color: #dffffd; }
 .level-2 { background: rgba(242, 184, 75, 0.72); color: #1b1306; }
@@ -2463,7 +2491,8 @@ body::before {
 }
 
 .popular-card .skill-icon {
-  background: rgba(247, 241, 227, 0.92);
+  background: rgba(8, 9, 7, 0.74);
+  border: 1px solid rgba(247, 241, 227, 0.18);
 }
 
 .popular-card strong {
