@@ -1163,9 +1163,19 @@ test('reset migration rebuilds skill map schema from scratch', () => {
 
   assert.match(sql, /drop table if exists app_skill_map\.member_skills cascade/);
   assert.match(sql, /drop table if exists app_skill_map\.skills cascade/);
+  assert.match(sql, /-- @realtime\s+create table if not exists app_skill_map\.skills/);
+  assert.match(sql, /-- @realtime\s+create table if not exists app_skill_map\.member_skills/);
   assert.match(sql, /normalized_name text not null default ''/);
   assert.match(sql, /constraint skills_workspace_catalog_key_unique unique \(workspace_id, catalog_key\)/);
   assert.doesNotMatch(sql, /where catalog_key is not null/i);
   assert.match(sql, /constraint member_skills_skill_same_workspace_fk/);
+  assert.match(sql, /create index if not exists idx_skills_workspace on app_skill_map\.skills \(workspace_id\)/);
+  assert.match(sql, /create index if not exists idx_member_skills_workspace on app_skill_map\.member_skills \(workspace_id\)/);
+  assert.match(sql, /alter table app_skill_map\.skills enable row level security/);
+  assert.match(sql, /alter table app_skill_map\.member_skills enable row level security/);
+  assert.match(sql, /drop policy if exists "skills_update" on app_skill_map\.skills/);
+  assert.match(sql, /drop policy if exists "member_skills_update" on app_skill_map\.member_skills/);
+  assert.match(sql, /create policy "skills_update" on app_skill_map\.skills/);
+  assert.match(sql, /create policy "member_skills_update" on app_skill_map\.member_skills/);
   assert.match(sql, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
 });

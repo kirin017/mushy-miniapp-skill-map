@@ -6,7 +6,8 @@ drop table if exists app_skill_map.member_skills cascade;
 drop table if exists app_skill_map.skills cascade;
 drop function if exists app_skill_map.set_updated_at() cascade;
 
-create table app_skill_map.skills (
+-- @realtime
+create table if not exists app_skill_map.skills (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   created_by uuid not null references auth.users(id),
@@ -31,7 +32,8 @@ create table app_skill_map.skills (
   constraint skills_workspace_catalog_key_unique unique (workspace_id, catalog_key)
 );
 
-create table app_skill_map.member_skills (
+-- @realtime
+create table if not exists app_skill_map.member_skills (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   created_by uuid not null references auth.users(id),
@@ -55,20 +57,29 @@ alter table app_skill_map.skills
   references app_skill_map.skills(workspace_id, id)
   on delete set null (canonical_skill_id);
 
-create index idx_skills_workspace on app_skill_map.skills (workspace_id);
-create index idx_skills_workspace_category on app_skill_map.skills (workspace_id, category);
-create index idx_skills_workspace_status on app_skill_map.skills (workspace_id, status);
-create index idx_skills_workspace_canonical on app_skill_map.skills (workspace_id, canonical_skill_id) where canonical_skill_id is not null;
-create index idx_member_skills_workspace on app_skill_map.member_skills (workspace_id);
-create index idx_member_skills_workspace_user on app_skill_map.member_skills (workspace_id, user_id);
-create index idx_member_skills_workspace_skill on app_skill_map.member_skills (workspace_id, skill_id);
-create index idx_member_skills_workspace_level on app_skill_map.member_skills (workspace_id, level desc);
+create index if not exists idx_skills_workspace on app_skill_map.skills (workspace_id);
+create index if not exists idx_skills_workspace_category on app_skill_map.skills (workspace_id, category);
+create index if not exists idx_skills_workspace_status on app_skill_map.skills (workspace_id, status);
+create index if not exists idx_skills_workspace_canonical on app_skill_map.skills (workspace_id, canonical_skill_id) where canonical_skill_id is not null;
+create index if not exists idx_member_skills_workspace on app_skill_map.member_skills (workspace_id);
+create index if not exists idx_member_skills_workspace_user on app_skill_map.member_skills (workspace_id, user_id);
+create index if not exists idx_member_skills_workspace_skill on app_skill_map.member_skills (workspace_id, skill_id);
+create index if not exists idx_member_skills_workspace_level on app_skill_map.member_skills (workspace_id, level desc);
 
 grant select, insert, update, delete on app_skill_map.skills to authenticated;
 grant select, insert, update, delete on app_skill_map.member_skills to authenticated;
 
 alter table app_skill_map.skills enable row level security;
 alter table app_skill_map.member_skills enable row level security;
+
+drop policy if exists "skills_select" on app_skill_map.skills;
+drop policy if exists "skills_insert" on app_skill_map.skills;
+drop policy if exists "skills_update" on app_skill_map.skills;
+drop policy if exists "skills_delete" on app_skill_map.skills;
+drop policy if exists "member_skills_select" on app_skill_map.member_skills;
+drop policy if exists "member_skills_insert" on app_skill_map.member_skills;
+drop policy if exists "member_skills_update" on app_skill_map.member_skills;
+drop policy if exists "member_skills_delete" on app_skill_map.member_skills;
 
 create policy "skills_select" on app_skill_map.skills
 for select using (
@@ -102,7 +113,8 @@ for insert with check (
 
 create policy "skills_update" on app_skill_map.skills
 for update using (
-  exists (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and exists (
     select 1
     from public.workspace_members wm
     where wm.workspace_id = skills.workspace_id
@@ -110,7 +122,8 @@ for update using (
       and wm.role in ('owner', 'admin')
   )
 ) with check (
-  exists (
+  public.can_access_app_data(workspace_id, 'skill-map')
+  and exists (
     select 1
     from public.workspace_members wm
     where wm.workspace_id = skills.workspace_id
