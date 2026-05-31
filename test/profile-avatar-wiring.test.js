@@ -88,3 +88,12 @@ test('Overview renders the skill marquee before quick action cards', () => {
   assert.match(overviewSource, /className="skill-marquee-track"/);
   assert.match(overviewSource, /className="skill-marquee-item"/);
 });
+
+test('Find tab compact layout prevents chip rows from widening the viewport', () => {
+  const source = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
+
+  assert.match(source, /\.compact-screen\s*\{[^}]*min-width:\s*0;/s);
+  assert.match(source, /\.compact-screen\s*>\s*\*\s*\{[^}]*max-width:\s*100%;/s);
+  assert.match(source, /\.skill-chip-row,\s*\n\.skill-picker\s*\{[^}]*min-width:\s*0;/s);
+  assert.match(source, /\.primary-wide\s*\{[^}]*white-space:\s*normal;/s);
+});

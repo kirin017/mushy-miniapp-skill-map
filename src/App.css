@@ -1300,9 +1300,17 @@ button.level-cell:hover {
 
 .compact-screen {
   width: min(100%, 860px);
+  max-width: 100%;
+  min-width: 0;
   min-height: calc(100vh - 134px);
   margin: 0 auto;
-  padding-bottom: 72px;
+  overflow-x: clip;
+  padding-bottom: calc(150px + env(safe-area-inset-bottom));
+}
+
+.compact-screen > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .topbar {
@@ -1330,6 +1338,7 @@ button.level-cell:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .result-head > strong,
@@ -1341,6 +1350,8 @@ button.level-cell:hover {
 .skill-picker {
   display: flex;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   padding-bottom: 2px;
@@ -1358,7 +1369,11 @@ button.level-cell:hover {
   border-radius: var(--r-control);
   background: rgba(255, 255, 255, 0.045);
   color: var(--text);
+  flex: 0 0 auto;
   font-weight: 700;
+  max-width: min(220px, 80vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1415,6 +1430,11 @@ button.level-cell:hover {
   color: #07100d;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   border: 0;
+  min-width: 0;
+  padding: 0 14px;
+  line-height: 1.22;
+  text-align: center;
+  white-space: normal;
 }
 
 .member-result {
