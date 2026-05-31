@@ -1157,3 +1157,15 @@ test('normalized name compatibility migration backfills required skill names', (
   assert.match(sql, /where normalized_name is null or normalized_name = ''/);
   assert.match(sql, /alter column normalized_name set not null/);
 });
+
+test('reset migration rebuilds skill map schema from scratch', () => {
+  const sql = readFileSync(new URL('../migrations/005_reset_team_skill_map_schema.sql', import.meta.url), 'utf8');
+
+  assert.match(sql, /drop table if exists app_skill_map\.member_skills cascade/);
+  assert.match(sql, /drop table if exists app_skill_map\.skills cascade/);
+  assert.match(sql, /normalized_name text not null default ''/);
+  assert.match(sql, /constraint skills_workspace_catalog_key_unique unique \(workspace_id, catalog_key\)/);
+  assert.doesNotMatch(sql, /where catalog_key is not null/i);
+  assert.match(sql, /constraint member_skills_skill_same_workspace_fk/);
+  assert.match(sql, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
+});
