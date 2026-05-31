@@ -110,9 +110,9 @@ export function buildMemberSkillUpsert({ workspaceId, userId, skillId, level, in
 export function buildProfileSummary({ currentMember, profileSkills = [], skills = [] }) {
   const skillMap = new Map(skills.map((skill) => [skill.id, skill]));
   return {
-    name: currentMember?.name || 'Hồ sơ của bạn',
-    handle: currentMember?.handle || '@me',
-    avatar: currentMember?.avatar || '?',
+    name: currentMember?.name || 'Đang đồng bộ hồ sơ',
+    handle: currentMember?.handle || '',
+    avatar: currentMember?.avatar || '...',
     avatarUrl: currentMember?.avatarUrl || null,
     skillCount: profileSkills.length,
     learningCount: profileSkills.filter((skill) => skill.level <= 2).length,
@@ -120,7 +120,7 @@ export function buildProfileSummary({ currentMember, profileSkills = [], skills 
   };
 }
 
-export function composeSkillMapView({ currentUserId, skills = [], memberSkills = [], members = [] }) {
+export function composeSkillMapView({ currentUserId, currentUserProfile = null, skills = [], memberSkills = [], members = [] }) {
   const skillRows = skills.filter(isApprovedSkill).sort(compareSkills);
   const nonApprovedSkillsById = new Map(skills.filter((skill) => !isApprovedSkill(skill)).map((skill) => [skill.id, skill]));
   const skillsById = new Map(skillRows.map((skill) => [skill.id, skill]));
@@ -170,16 +170,18 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
   const pendingMemberSkillRows = memberSkills.filter((row) => nonApprovedSkillsById.get(row.skill_id)?.status === 'pending');
 
   const membersById = new Map();
-  for (const member of members) {
-    const userId = member.user_id || member.userId || member.id;
-    if (!userId) continue;
-    membersById.set(userId, {
-      id: userId,
-      userId,
-      name: member.full_name || member.name || 'Thanh vien',
-      handle: member.handle || handleFromName(member.full_name || member.name || userId),
-      avatar: initials(member.full_name || member.name || userId),
-      avatarUrl: member.avatar_url || member.avatarUrl || null,
+  const currentProfileMember = normalizeMemberProfile(currentUserProfile, currentUserId);
+  for (const member of [...members, currentProfileMember].filter(Boolean)) {
+    const normalized = normalizeMemberProfile(member, currentUserId);
+    if (!normalized) continue;
+    const existing = membersById.get(normalized.userId);
+    membersById.set(normalized.userId, {
+      id: normalized.userId,
+      userId: normalized.userId,
+      name: normalized.name || existing?.name || 'Chưa đồng bộ hồ sơ',
+      handle: normalized.handle || existing?.handle || handleFromName(normalized.name),
+      avatar: initials(normalized.name || normalized.userId),
+      avatarUrl: normalized.avatarUrl || existing?.avatarUrl || null,
       skills: {},
       notes: {},
       interests: {},
@@ -192,7 +194,7 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
       membersById.set(row.user_id, {
         id: row.user_id,
         userId: row.user_id,
-        name: 'Thanh vien',
+        name: 'Chưa đồng bộ hồ sơ',
         handle: handleFromName(row.user_id),
         avatar: initials(row.user_id),
         avatarUrl: null,
@@ -284,7 +286,7 @@ export function composeSkillMapView({ currentUserId, skills = [], memberSkills =
   };
 }
 
-export async function loadSkillMapData({ db, listMembers, workspaceId, userId }) {
+export async function loadSkillMapData({ db, listMembers, workspaceId, userId, currentUserProfile = null }) {
   if (userId) {
     await syncCatalogSkillRows({ db, workspaceId, userId });
   }
@@ -301,8 +303,8 @@ export async function loadSkillMapData({ db, listMembers, workspaceId, userId })
 
   const skillIds = skills.map((skill) => skill.id);
   const memberSkills = skillIds.length ? await fetchMemberSkills(db, workspaceId, skillIds) : [];
-  const members = await listMembers(workspaceId);
-  return composeSkillMapView({ currentUserId: userId, skills, memberSkills, members });
+  const members = await listMembers(workspaceId, { currentUserId: userId, currentUserProfile });
+  return composeSkillMapView({ currentUserId: userId, currentUserProfile, skills, memberSkills, members });
 }
 
 export async function saveProfileSkill({ db, workspaceId, userId, skillId, skillName, category, level, interest, note, memberSkillId, memberSkillIds }) {
@@ -626,6 +628,27 @@ function uniqueValues(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function normalizeMemberProfile(member, fallbackUserId) {
+  if (!member) return null;
+  const userId = firstText(member.user_id, member.userId, member.id, fallbackUserId);
+  if (!userId) return null;
+  const name = firstText(member.full_name, member.fullName, member.name, member.displayName, member.display_name);
+  return {
+    userId,
+    name,
+    handle: firstText(member.handle),
+    avatarUrl: firstText(member.avatar_url, member.avatarUrl),
+  };
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
 function shouldPreferMemberSkillRow(candidate, current) {
   const candidateLevel = clampInteger(candidate.level, 0, 4);
   const currentLevel = clampInteger(current.level, 0, 4);
@@ -671,11 +694,11 @@ function initials(name) {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-  if (parts.length === 0) return '?';
+  if (parts.length === 0) return '...';
   return parts.slice(-2).map((part) => part[0]).join('').toUpperCase();
 }
 
 function handleFromName(name) {
   const key = skillKey(name).replace(/_/g, '');
-  return key ? `@${key.slice(0, 16)}` : '@member';
+  return key ? `@${key.slice(0, 16)}` : '';
 }

@@ -1,0 +1,29 @@
+{
+  "locked": true,
+  "target": 7,
+  "target_min": 6,
+  "orchestration_mode": "Local controller",
+  "intent": "DELIVER",
+  "criteria": [
+    {
+      "name": "profile_sync_correctness",
+      "description": "Current user profile is sourced from main app context and/or real profile records, including when workspace member rows miss the current user.",
+      "target": 7
+    },
+    {
+      "name": "mock_ui_removal",
+      "description": "Remaining profile/member mock labels are replaced with truthful loading or unsynced states without pretending fake identity exists.",
+      "target": 7
+    },
+    {
+      "name": "logic_preservation",
+      "description": "Skill catalog, member skill CRUD, sharing scope, and RLS-aware data access behavior remain intact.",
+      "target": 7
+    },
+    {
+      "name": "runtime_quality",
+      "description": "Tests/build and browser smoke pass without new console/runtime or visible layout regressions.",
+      "target": 7
+    }
+  ]
+}

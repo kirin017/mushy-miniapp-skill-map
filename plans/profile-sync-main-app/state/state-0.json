@@ -1,0 +1,18 @@
+{
+  "orchestration_mode": "Local controller",
+  "agent_split": "Local only",
+  "reason": "Profile sync touches one shared data path and should be implemented in one coherent patch.",
+  "prior_scores": {},
+  "failure_class": null,
+  "targeted_criteria": [
+    "profile_sync_correctness",
+    "mock_ui_removal",
+    "logic_preservation",
+    "runtime_quality"
+  ],
+  "hypothesis": "The dashboard shows mock profile UI because current user profile data is only taken from workspace members and the composer fabricates member labels when profile rows are missing.",
+  "what_not_to_retry": [
+    "Do not only rename UI strings while leaving the current user absent from data composition.",
+    "Do not revert sharing or Supabase RLS behavior."
+  ]
+}

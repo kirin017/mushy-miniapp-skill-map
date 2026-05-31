@@ -19,24 +19,47 @@
 
 import { dbPublic } from './supabase.js';
 
-export async function listMembers(workspaceId) {
-  if (!workspaceId) return [];
+export async function listMembers(workspaceId, { currentUserId, currentUserProfile } = {}) {
+  const currentProfile = normalizeProfile(currentUserProfile, currentUserId);
+  if (!workspaceId) return currentProfile ? [currentProfile] : [];
 
   const { data: rows, error: mErr } = await dbPublic
     .from('workspace_members')
     .select('user_id, role')
     .eq('workspace_id', workspaceId);
   if (mErr) throw mErr;
-  if (!rows?.length) return [];
 
-  const profileMap = await getProfiles(rows.map((r) => r.user_id));
-  return rows.map((r) => ({
-    user_id: r.user_id,
-    role: r.role,
-    full_name: profileMap[r.user_id]?.full_name ?? null,
-    avatar_url: profileMap[r.user_id]?.avatar_url ?? null,
-    work_phone: profileMap[r.user_id]?.work_phone ?? null,
-  }));
+  const memberRows = rows || [];
+  const profileMap = await getProfiles(uniqueValues([
+    ...memberRows.map((r) => r.user_id),
+    currentUserId,
+  ]));
+
+  const members = memberRows.map((r) => {
+    const profile = mergeProfile(profileMap[r.user_id], r.user_id === currentUserId ? currentProfile : null);
+    return {
+      user_id: r.user_id,
+      role: r.role,
+      full_name: profile.full_name,
+      handle: profile.handle,
+      avatar_url: profile.avatar_url,
+      work_phone: profile.work_phone,
+    };
+  });
+
+  if (currentProfile && !members.some((member) => member.user_id === currentProfile.user_id)) {
+    const profile = mergeProfile(profileMap[currentProfile.user_id], currentProfile);
+    members.push({
+      user_id: currentProfile.user_id,
+      role: profile.role || 'member',
+      full_name: profile.full_name,
+      handle: profile.handle,
+      avatar_url: profile.avatar_url,
+      work_phone: profile.work_phone,
+    });
+  }
+
+  return members;
 }
 
 export async function getProfiles(userIds) {
@@ -47,4 +70,39 @@ export async function getProfiles(userIds) {
     .in('user_id', userIds);
   if (error) throw error;
   return Object.fromEntries((data || []).map((p) => [p.user_id, p]));
+}
+
+function normalizeProfile(profile, userId) {
+  const resolvedUserId = firstText(profile?.user_id, profile?.userId, profile?.id, userId);
+  if (!resolvedUserId) return null;
+  return {
+    user_id: resolvedUserId,
+    role: firstText(profile?.role) || null,
+    full_name: firstText(profile?.full_name, profile?.fullName, profile?.name) || null,
+    handle: firstText(profile?.handle) || null,
+    avatar_url: firstText(profile?.avatar_url, profile?.avatarUrl) || null,
+    work_phone: firstText(profile?.work_phone, profile?.workPhone) || null,
+  };
+}
+
+function mergeProfile(dbProfile, contextProfile) {
+  return {
+    role: firstText(contextProfile?.role, dbProfile?.role) || null,
+    full_name: firstText(contextProfile?.full_name, dbProfile?.full_name) || null,
+    handle: firstText(contextProfile?.handle, dbProfile?.handle) || null,
+    avatar_url: firstText(contextProfile?.avatar_url, dbProfile?.avatar_url) || null,
+    work_phone: firstText(contextProfile?.work_phone, dbProfile?.work_phone) || null,
+  };
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text) return text;
+  }
+  return '';
 }

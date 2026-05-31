@@ -1,0 +1,31 @@
+{
+  "iteration": 1,
+  "executor": "codex-local-controller",
+  "orchestrator": "meta-harness",
+  "scores": {
+    "profile_sync_correctness": {
+      "score": 8,
+      "evidence": "Added normalizeContextProfile for main app context variants and passed currentUserProfile through App -> loadSkillMapData -> listMembers -> composeSkillMapView. Regression tests cover current user profile rendering when workspace member lookup returns no current user."
+    },
+    "mock_ui_removal": {
+      "score": 8,
+      "evidence": "Removed data-layer fallbacks for `Thanh vien`, `@me`, `@member`, and `?`; missing profile rows now render `Chưa đồng bộ hồ sơ`, and profile summary uses `Đang đồng bộ hồ sơ` while waiting for real identity."
+    },
+    "logic_preservation": {
+      "score": 8,
+      "evidence": "Skill CRUD, sharing scope, catalog sync, and RLS queries remain unchanged except for passing optional current-user profile metadata. npm test passed 51/51."
+    },
+    "runtime_quality": {
+      "score": 7,
+      "evidence": "npm test passed 51/51; npm run build passed with the existing Vite chunk-size warning. Browser smoke on http://127.0.0.1:5173 rendered the dashboard on mobile. Console had existing Supabase 401/JWT expired dev-token errors."
+    }
+  },
+  "screenshots": [
+    "plans/profile-sync-main-app/reports/profile-sync-main-app-mobile.png"
+  ],
+  "overall": {
+    "score": 7.75,
+    "pass": true,
+    "evidence": "All locked rubric criteria meet target >= 7."
+  }
+}

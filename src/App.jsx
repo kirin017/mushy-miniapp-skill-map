@@ -5,7 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import './App.css';
 import ScopeSwitcher from './components/ScopeSwitcher.jsx';
 import ShareManageModal from './components/ShareManageModal.jsx';
-import { getContext } from './lib/context.js';
+import { getContext, normalizeContextProfile } from './lib/context.js';
 import { db } from './lib/supabase.js';
 import { listMembers } from './lib/members.js';
 import { useActiveScope, useDefaultScopeInitializer, useIsCurrentWorkspaceAdmin } from './lib/sharing.js';
@@ -56,6 +56,7 @@ function SkillMapApp({ ctx }) {
   const [loadError, setLoadError] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const currentUserProfile = useMemo(() => normalizeContextProfile(ctx), [ctx]);
 
   const skills = view.skills.length ? view.skills : INITIAL_SKILLS;
   const members = view.members;
@@ -119,6 +120,7 @@ function SkillMapApp({ ctx }) {
         listMembers,
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
+        currentUserProfile,
       });
       setView(next);
       if (next.skills.length && !next.skills.some((skill) => skill.id === selectedSkill)) {
@@ -130,7 +132,7 @@ function SkillMapApp({ ctx }) {
     } finally {
       setLoading(false);
     }
-  }, [activeScope.workspaceId, ctx.userId, selectedSkill]);
+  }, [activeScope.workspaceId, ctx.userId, currentUserProfile, selectedSkill]);
 
   useEffect(() => {
     reload();
@@ -291,7 +293,7 @@ function SkillMapApp({ ctx }) {
           <span className="status-orbit" aria-hidden="true" />
           <div>
             <strong>Chưa có dữ liệu team</strong>
-            <p>Skill Map vẫn hiển thị catalog mẫu để bạn kiểm tra layout và bắt đầu thêm hồ sơ.</p>
+            <p>Skill Map vẫn hiển thị catalog chuẩn để bạn bắt đầu đồng bộ hồ sơ kỹ năng.</p>
           </div>
         </section>
       )}

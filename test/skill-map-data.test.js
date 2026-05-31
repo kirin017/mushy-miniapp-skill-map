@@ -19,6 +19,7 @@ import {
   rejectPendingSkill,
   saveProfileSkill,
 } from '../src/lib/app/skill-map-data.js';
+import { normalizeContextProfile } from '../src/lib/context.js';
 
 test('preset skills are derived from the approved standard catalog with visual assets where known', () => {
   assert.equal(PRESET_SKILLS.length >= 50, true);
@@ -114,6 +115,76 @@ test('composeSkillMapView derives heatmap members, skills, and current user prof
       category: 'DevOps',
     },
   ]);
+});
+
+test('normalizeContextProfile accepts main app profile shapes', () => {
+  assert.deepEqual(
+    normalizeContextProfile({
+      userId: 'u-me',
+      role: 'admin',
+      userProfile: {
+        fullName: 'Tran Minh Duc',
+        avatarUrl: 'https://example.test/duc.png',
+        username: 'duc',
+        workPhone: '0900000000',
+      },
+    }),
+    {
+      user_id: 'u-me',
+      role: 'admin',
+      full_name: 'Tran Minh Duc',
+      handle: '@duc',
+      avatar_url: 'https://example.test/duc.png',
+      work_phone: '0900000000',
+    },
+  );
+});
+
+test('composeSkillMapView syncs current member from app context when workspace members miss it', () => {
+  const view = composeSkillMapView({
+    currentUserId: 'u-me',
+    currentUserProfile: {
+      user_id: 'u-me',
+      full_name: 'Tran Minh Duc',
+      handle: '@duc',
+      avatar_url: 'https://example.test/duc.png',
+    },
+    skills: [],
+    memberSkills: [],
+    members: [],
+  });
+
+  assert.equal(view.members.length, 1);
+  assert.equal(view.members[0].userId, 'u-me');
+  assert.equal(view.members[0].name, 'Tran Minh Duc');
+  assert.equal(view.members[0].handle, '@duc');
+  assert.equal(view.members[0].avatarUrl, 'https://example.test/duc.png');
+
+  const summary = buildProfileSummary({
+    currentMember: view.members[0],
+    profileSkills: [],
+    skills: [],
+  });
+  assert.equal(summary.name, 'Tran Minh Duc');
+  assert.equal(summary.handle, '@duc');
+  assert.equal(summary.avatarUrl, 'https://example.test/duc.png');
+});
+
+test('composeSkillMapView labels missing member profiles as unsynced instead of mock identity', () => {
+  const view = composeSkillMapView({
+    currentUserId: 'u-me',
+    skills: [
+      { id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true, status: 'approved' },
+    ],
+    memberSkills: [
+      { user_id: 'u-missing', skill_id: 'skill-react', level: 3, interest: 2, note: '' },
+    ],
+    members: [],
+  });
+
+  const missingMember = view.members.find((member) => member.userId === 'u-missing');
+  assert.equal(missingMember.name, 'Chưa đồng bộ hồ sơ');
+  assert.notEqual(missingMember.name, 'Thanh vien');
 });
 
 test('composeSkillMapView excludes non-approved skills and preserves current user pending profile skills', () => {
@@ -1009,6 +1080,59 @@ test('loadSkillMapData syncs catalog rows and continues when catalog sync is blo
   assert.equal(upserts[0].rows.length >= 50, true);
   assert.match(selects.find((select) => select.table === 'skills').columns, /catalog_key/);
   assert.deepEqual(view.skills.map((skill) => skill.name), ['React']);
+});
+
+test('loadSkillMapData passes app profile through when member lookup returns no current user', async () => {
+  const listMemberCalls = [];
+  const db = {
+    from(table) {
+      return {
+        upsert() {
+          return Promise.resolve({ data: null, error: null });
+        },
+        select() {
+          const query = {
+            eq() {
+              return query;
+            },
+            then(resolve) {
+              return Promise.resolve({ data: [], error: null }).then(resolve);
+            },
+          };
+          return query;
+        },
+      };
+    },
+  };
+
+  const currentUserProfile = {
+    user_id: 'u-me',
+    full_name: 'Tran Minh Duc',
+    handle: '@duc',
+    avatar_url: 'https://example.test/duc.png',
+  };
+  const view = await loadSkillMapData({
+    db,
+    listMembers: async (workspaceId, options) => {
+      listMemberCalls.push({ workspaceId, options });
+      return [];
+    },
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+    currentUserProfile,
+  });
+
+  assert.deepEqual(listMemberCalls, [
+    {
+      workspaceId: 'ws-active',
+      options: {
+        currentUserId: 'u-me',
+        currentUserProfile,
+      },
+    },
+  ]);
+  assert.equal(view.members[0].name, 'Tran Minh Duc');
+  assert.equal(view.members[0].avatarUrl, 'https://example.test/duc.png');
 });
 
 test('loadSkillMapData throws non-permission catalog sync errors', async () => {
