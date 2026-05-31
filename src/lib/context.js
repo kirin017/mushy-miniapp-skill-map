@@ -148,7 +148,6 @@ function normalizeProfileShape(source = {}) {
     source.userName,
     source.profile?.handle,
     source.profile?.username,
-    email ? email.split('@')[0] : null,
   ));
   const avatarUrl = firstImageUrl(
     source.avatar_url,

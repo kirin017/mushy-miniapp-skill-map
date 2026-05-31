@@ -242,6 +242,7 @@ test('composeSkillMapView syncs teammate profiles from app context', () => {
 
   const teammate = view.members.find((member) => member.userId === 'u-2');
   assert.equal(teammate.name, 'Dau Van Nam');
+  assert.equal(teammate.handle, '');
   assert.equal(teammate.avatarUrl, 'https://example.test/nam.png');
   assert.equal(teammate.skills.react, 4);
 });
@@ -334,6 +335,7 @@ test('composeSkillMapView labels missing member profiles as unsynced instead of 
 
   const missingMember = view.members.find((member) => member.userId === 'u-missing');
   assert.equal(missingMember.name, 'Chưa đồng bộ hồ sơ');
+  assert.equal(missingMember.handle, '');
   assert.notEqual(missingMember.name, 'Thanh vien');
 });
 

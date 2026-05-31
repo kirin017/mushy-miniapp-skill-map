@@ -580,7 +580,7 @@ function Overview({
                       <span className="face">{member.avatar}</span>
                       <span>
                         <strong>{member.name}</strong>
-                        <small>{member.handle}</small>
+                        {member.handle && <small>{member.handle}</small>}
                       </span>
                     </td>
                     {heatSkills.map((skill) => (
@@ -607,7 +607,7 @@ function Overview({
                     <span className="face">{member.avatar}</span>
                     <span>
                       <strong>{member.name}</strong>
-                      <small>{member.handle}</small>
+                      {member.handle && <small>{member.handle}</small>}
                     </span>
                   </div>
                   <div>
@@ -886,7 +886,7 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
           <span className="face">{selectedMember.avatar}</span>
           <div>
             <strong>{selectedMember.name}</strong>
-            <small>{selectedMember.handle}</small>
+            {selectedMember.handle && <small>{selectedMember.handle}</small>}
             <p>{selected.name}: Level {selectedMember.level} · {LEVEL_LABELS[selectedMember.level]} · Quan tâm {selectedMember.interest}</p>
           </div>
         </section>
@@ -918,7 +918,7 @@ function MemberResult({ member, active, onSelect }) {
       <span className="face">{member.avatar}</span>
       <span>
         <strong>{member.name}</strong>
-        <small>{member.handle}</small>
+        {member.handle && <small>{member.handle}</small>}
         <em className={`level-text level-text-${member.level}`}>Level {member.level} · {LEVEL_LABELS[member.level]}</em>
       </span>
       <b>Quan tâm {member.interest}</b>
@@ -1035,7 +1035,7 @@ function ProfileScreen({
         <ProfileAvatar summary={profileSummary} />
         <div>
           <h2>{profileSummary.name}</h2>
-          <p>{profileSummary.handle} · {profileSummary.skillCount} kỹ năng · {profileSummary.learningCount} đang học</p>
+          <p>{[profileSummary.handle, `${profileSummary.skillCount} kỹ năng`, `${profileSummary.learningCount} đang học`].filter(Boolean).join(' · ')}</p>
         </div>
         <button type="button" onClick={openAddForm} aria-label="Thêm kỹ năng" disabled={saving}>＋</button>
       </section>

@@ -179,7 +179,7 @@ export function composeSkillMapView({ currentUserId, currentUserProfile = null, 
       id: normalized.userId,
       userId: normalized.userId,
       name: normalized.name || existing?.name || 'Chưa đồng bộ hồ sơ',
-      handle: normalized.handle || existing?.handle || handleFromName(normalized.name),
+      handle: normalized.handle || existing?.handle || '',
       avatar: initials(normalized.name || normalized.userId),
       avatarUrl: normalized.avatarUrl || existing?.avatarUrl || null,
       skills: {},
@@ -195,7 +195,7 @@ export function composeSkillMapView({ currentUserId, currentUserProfile = null, 
         id: row.user_id,
         userId: row.user_id,
         name: 'Chưa đồng bộ hồ sơ',
-        handle: handleFromName(row.user_id),
+        handle: '',
         avatar: initials(row.user_id),
         avatarUrl: null,
         skills: {},
@@ -702,9 +702,4 @@ function initials(name) {
     .filter(Boolean);
   if (parts.length === 0) return '...';
   return parts.slice(-2).map((part) => part[0]).join('').toUpperCase();
-}
-
-function handleFromName(name) {
-  const key = skillKey(name).replace(/_/g, '');
-  return key ? `@${key.slice(0, 16)}` : '';
 }
