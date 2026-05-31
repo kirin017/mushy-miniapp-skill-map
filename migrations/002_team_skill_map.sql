@@ -7,6 +7,7 @@ create table if not exists app_skill_map.skills (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   created_by uuid not null references auth.users(id),
   name text not null check (char_length(name) between 1 and 80),
+  normalized_name text not null default '',
   category text not null default 'Custom' check (char_length(category) between 1 and 40),
   is_preset boolean not null default false,
   catalog_key text,
@@ -37,6 +38,9 @@ create table if not exists app_skill_map.member_skills (
   updated_at timestamptz not null default now(),
   constraint member_skills_user_skill_unique unique (workspace_id, user_id, skill_id)
 );
+
+alter table app_skill_map.skills
+  add column if not exists normalized_name text not null default '';
 
 alter table app_skill_map.skills
   add column if not exists category text not null default 'Custom' check (char_length(category) between 1 and 40);

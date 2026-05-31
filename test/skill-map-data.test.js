@@ -46,6 +46,7 @@ test('buildCatalogSkillRows creates approved catalog rows for the active workspa
     canonical_skill_id: null,
     review_note: '',
     name: 'React',
+    normalized_name: 'react',
     category: 'Frontend',
     is_preset: true,
   });
@@ -305,6 +306,7 @@ test('buildCustomSkillUpsert creates a pending proposal skill row', () => {
       workspace_id: 'ws-active',
       created_by: 'u-me',
       name: 'Kafka Streams',
+      normalized_name: 'kafkastreams',
       category: 'Backend',
       status: 'pending',
       source: 'proposal',
@@ -1073,6 +1075,7 @@ test('skill map migration includes catalog review metadata', () => {
   const memberSkillsDeletePolicy = sql.match(/create policy "member_skills_delete"[\s\S]*?create or replace function app_skill_map\.set_updated_at/)?.[0] ?? '';
 
   assert.match(sql, /catalog_key text/);
+  assert.match(sql, /normalized_name text not null default ''/);
   assert.match(sql, /status text not null default 'approved'/);
   assert.match(sql, /skill_type text not null default 'tool'/);
   assert.match(sql, /description text not null default ''/);
@@ -1144,4 +1147,13 @@ test('catalog upsert repair migration creates a non-partial conflict index', () 
   assert.match(sql, /drop index if exists app_skill_map\.idx_skills_workspace_catalog_key/);
   assert.match(sql, /create unique index if not exists idx_skills_workspace_catalog_key\s+on app_skill_map\.skills \(workspace_id, catalog_key\)/i);
   assert.doesNotMatch(sql, /where catalog_key is not null/i);
+});
+
+test('normalized name compatibility migration backfills required skill names', () => {
+  const sql = readFileSync(new URL('../migrations/004_add_skill_normalized_name_compat.sql', import.meta.url), 'utf8');
+
+  assert.match(sql, /add column if not exists normalized_name text/);
+  assert.match(sql, /set normalized_name = lower\(regexp_replace\(name/);
+  assert.match(sql, /where normalized_name is null or normalized_name = ''/);
+  assert.match(sql, /alter column normalized_name set not null/);
 });

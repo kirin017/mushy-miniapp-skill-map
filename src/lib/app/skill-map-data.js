@@ -1,4 +1,4 @@
-import { STANDARD_SKILLS, matchCatalogSkill } from './skill-catalog.js';
+import { STANDARD_SKILLS, matchCatalogSkill, normalizeSkillName } from './skill-catalog.js';
 
 const CATALOG_DISPLAY_NAMES = new Map([
   ['frontend.react', 'React'],
@@ -49,21 +49,25 @@ const PRESET_ORDER = new Map(PRESET_SKILLS.flatMap((skill, index) => [
 ]));
 
 export function buildCatalogSkillRows({ workspaceId, userId }) {
-  return STANDARD_SKILLS.map((skill) => ({
-    workspace_id: workspaceId,
-    created_by: userId,
-    catalog_key: skill.key,
-    status: 'approved',
-    skill_type: skill.skillType,
-    aliases: [...(skill.aliases || [])],
-    description: skill.description || '',
-    source: 'catalog',
-    canonical_skill_id: null,
-    review_note: '',
-    name: CATALOG_DISPLAY_NAMES.get(skill.key) || skill.name,
-    category: skill.category,
-    is_preset: true,
-  }));
+  return STANDARD_SKILLS.map((skill) => {
+    const name = CATALOG_DISPLAY_NAMES.get(skill.key) || skill.name;
+    return {
+      workspace_id: workspaceId,
+      created_by: userId,
+      catalog_key: skill.key,
+      status: 'approved',
+      skill_type: skill.skillType,
+      aliases: [...(skill.aliases || [])],
+      description: skill.description || '',
+      source: 'catalog',
+      canonical_skill_id: null,
+      review_note: '',
+      name,
+      normalized_name: normalizeSkillName(name),
+      category: skill.category,
+      is_preset: true,
+    };
+  });
 }
 
 export function buildPresetSkillRows({ workspaceId, userId }) {
@@ -77,6 +81,7 @@ export function buildCustomSkillUpsert({ workspaceId, userId, name, category, no
     workspace_id: workspaceId,
     created_by: userId,
     name: skillName.slice(0, 80),
+    normalized_name: normalizeSkillName(skillName.slice(0, 80)),
     category: String(category || 'Custom').trim().slice(0, 40) || 'Custom',
     status: 'pending',
     source: 'proposal',
