@@ -66,3 +66,25 @@ test('App exposes pending skill review UI and pending profile section', () => {
   assert.match(source, /rejectPendingSkill/);
   assert.match(source, /useIsCurrentWorkspaceAdmin/);
 });
+
+test('SkillIcon does not lazy-load tiny skill assets used in scrolling UI', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const skillIconStart = source.indexOf('function SkillIcon');
+  const assetFallbackStart = source.indexOf('function handleAssetFallback');
+  const skillIconSource = source.slice(skillIconStart, assetFallbackStart);
+
+  assert.match(skillIconSource, /decoding="async"/);
+  assert.doesNotMatch(skillIconSource, /loading="lazy"/);
+});
+
+test('Overview renders the skill marquee before quick action cards', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const overviewStart = source.indexOf('function Overview');
+  const pendingReviewStart = source.indexOf('function PendingSkillReview');
+  const overviewSource = source.slice(overviewStart, pendingReviewStart);
+
+  assert.ok(overviewSource.indexOf('className="skill-marquee"') > -1);
+  assert.ok(overviewSource.indexOf('className="skill-marquee"') < overviewSource.indexOf('className="quick-grid"'));
+  assert.match(overviewSource, /className="skill-marquee-track"/);
+  assert.match(overviewSource, /className="skill-marquee-item"/);
+});

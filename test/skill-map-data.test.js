@@ -27,6 +27,8 @@ test('preset skills are derived from the approved standard catalog with visual a
 
   const knownVisualSkills = PRESET_SKILLS.filter((skill) => ['frontend.react', 'devops.docker', 'data.postgresql', 'design.figma'].includes(skill.id));
   assert.equal(knownVisualSkills.every((skill) => skill.iconUrl?.startsWith('https://cdn.simpleicons.org/')), true);
+  assert.equal(PRESET_SKILLS.every((skill) => skill.iconUrl), true);
+  assert.equal(PRESET_SKILLS.every((skill) => !/amazonwebservices|microsoftazure|playwright/.test(skill.iconUrl)), true);
   assert.equal(PRESET_SKILLS.every((skill) => skill.iconAlt === `${skill.name} icon`), true);
 });
 

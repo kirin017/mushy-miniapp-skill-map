@@ -398,7 +398,7 @@ function SkillIcon({ skill, className = '', compact = false }) {
   const classes = ['skill-icon', compact ? 'skill-icon--compact' : '', className].filter(Boolean).join(' ');
   return (
     <span className={classes} aria-hidden="true">
-      {skill.iconUrl && <img src={skill.iconUrl} alt="" loading="lazy" onError={handleAssetFallback} />}
+      {skill.iconUrl && <img src={skill.iconUrl} alt="" decoding="async" onError={handleAssetFallback} />}
       <span className="skill-icon-fallback" hidden={!!skill.iconUrl}>{skill.icon}</span>
     </span>
   );
@@ -498,6 +498,17 @@ function Overview({
           </section>
         )}
 
+        <section className="skill-marquee" aria-label="Kỹ năng đang theo dõi" data-gsap="fade-up">
+          <div className="skill-marquee-track">
+            {[...skills.slice(0, 8), ...skills.slice(0, 8)].map((skill, index) => (
+              <span className="skill-marquee-item" key={`${skill.id}-${index}`}>
+                <SkillIcon skill={skill} compact />
+                {skill.name}
+              </span>
+            ))}
+          </div>
+        </section>
+
         <div className="quick-grid" data-gsap="fade-up">
           <button className="quick-card" type="button" onClick={onReport}>
             <span className="quick-icon heat-icon" aria-hidden="true">
@@ -516,17 +527,6 @@ function Overview({
             </span>
           </button>
         </div>
-
-        <section className="skill-marquee" aria-label="Kỹ năng đang theo dõi" data-gsap="fade-up">
-          <div>
-            {[...skills.slice(0, 8), ...skills.slice(0, 8)].map((skill, index) => (
-              <span key={`${skill.id}-${index}`}>
-                <SkillIcon skill={skill} compact />
-                {skill.name}
-              </span>
-            ))}
-          </div>
-        </section>
 
         <div className="search-row" data-gsap="fade-up">
           <label className="search-pill overview-search" htmlFor="overview-search">

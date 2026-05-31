@@ -4,6 +4,18 @@ const CATALOG_DISPLAY_NAMES = new Map([
   ['frontend.react', 'React'],
 ]);
 
+const CATEGORY_ICON_STYLES = new Map([
+  ['Frontend', { fg: '#64DFC4', bg: '#0B252A', ring: '#8FB7FF' }],
+  ['Backend', { fg: '#C9F75D', bg: '#16210E', ring: '#64DFC4' }],
+  ['Database/Data', { fg: '#8FB7FF', bg: '#101B2D', ring: '#64DFC4' }],
+  ['AI/ML', { fg: '#DDB7FF', bg: '#21142D', ring: '#8FB7FF' }],
+  ['Mobile', { fg: '#78E08F', bg: '#102415', ring: '#C9F75D' }],
+  ['DevOps/Cloud', { fg: '#F7C85B', bg: '#241D0E', ring: '#64DFC4' }],
+  ['Quality', { fg: '#64DFC4', bg: '#0E2224', ring: '#C9F75D' }],
+  ['Security', { fg: '#FF667A', bg: '#2B1218', ring: '#F7C85B' }],
+  ['Design/Product', { fg: '#FF9FB0', bg: '#2A151D', ring: '#64DFC4' }],
+]);
+
 const CATALOG_ICONS = new Map([
   ['frontend.react', { icon: '⚛️', iconUrl: 'https://cdn.simpleicons.org/react/61DAFB' }],
   ['frontend.vue', { icon: 'V', iconUrl: 'https://cdn.simpleicons.org/vuedotjs/4FC08D' }],
@@ -11,37 +23,115 @@ const CATALOG_ICONS = new Map([
   ['frontend.nextjs', { icon: 'N', iconUrl: 'https://cdn.simpleicons.org/nextdotjs/000000' }],
   ['frontend.typescript', { icon: 'TS', iconUrl: 'https://cdn.simpleicons.org/typescript/3178C6' }],
   ['frontend.tailwind', { icon: 'TW', iconUrl: 'https://cdn.simpleicons.org/tailwindcss/06B6D4' }],
+  ['frontend.accessibility', { icon: 'A11Y' }],
+  ['frontend.state_management', { icon: 'ST' }],
   ['backend.nodejs', { icon: 'JS', iconUrl: 'https://cdn.simpleicons.org/nodedotjs/5FA04E' }],
   ['backend.express', { icon: 'EX', iconUrl: 'https://cdn.simpleicons.org/express/000000' }],
   ['backend.nestjs', { icon: 'NE', iconUrl: 'https://cdn.simpleicons.org/nestjs/E0234E' }],
+  ['backend.python', { icon: 'PY', iconUrl: 'https://cdn.simpleicons.org/python/3776AB' }],
   ['backend.django', { icon: 'DJ', iconUrl: 'https://cdn.simpleicons.org/django/092E20' }],
   ['backend.fastapi', { icon: 'FA', iconUrl: 'https://cdn.simpleicons.org/fastapi/009688' }],
+  ['backend.rest_api', { icon: 'API' }],
   ['backend.graphql', { icon: 'GQ', iconUrl: 'https://cdn.simpleicons.org/graphql/E10098' }],
   ['data.postgresql', { icon: 'PG', iconUrl: 'https://cdn.simpleicons.org/postgresql/4169E1' }],
   ['data.mysql', { icon: 'MY', iconUrl: 'https://cdn.simpleicons.org/mysql/4479A1' }],
   ['data.mongodb', { icon: 'MO', iconUrl: 'https://cdn.simpleicons.org/mongodb/47A248' }],
   ['data.redis', { icon: 'RE', iconUrl: 'https://cdn.simpleicons.org/redis/FF4438' }],
+  ['data.sql', { icon: 'SQL' }],
+  ['data.modeling', { icon: 'ERD' }],
+  ['data.analytics', { icon: 'AN' }],
+  ['data.etl', { icon: 'ETL' }],
+  ['aiml.prompt_engineering', { icon: 'PMT' }],
+  ['aiml.llm_integration', { icon: 'LLM' }],
+  ['aiml.rag', { icon: 'RAG' }],
+  ['aiml.embeddings', { icon: 'VEC' }],
+  ['aiml.vector_databases', { icon: 'DB' }],
+  ['aiml.machine_learning', { icon: 'ML' }],
+  ['mobile.react_native', { icon: 'RN', iconUrl: 'https://cdn.simpleicons.org/react/61DAFB' }],
+  ['mobile.flutter', { icon: 'FL', iconUrl: 'https://cdn.simpleicons.org/flutter/02569B' }],
+  ['mobile.ios', { icon: 'iOS', iconUrl: 'https://cdn.simpleicons.org/apple/A2AAAD' }],
+  ['mobile.android', { icon: 'AND', iconUrl: 'https://cdn.simpleicons.org/android/3DDC84' }],
+  ['mobile.pwa', { icon: 'PWA', iconUrl: 'https://cdn.simpleicons.org/pwa/5A0FC8' }],
   ['devops.docker', { icon: '▦', iconUrl: 'https://cdn.simpleicons.org/docker/2496ED' }],
   ['devops.kubernetes', { icon: 'K8', iconUrl: 'https://cdn.simpleicons.org/kubernetes/326CE5' }],
-  ['devops.aws', { icon: 'AWS', iconUrl: 'https://cdn.simpleicons.org/amazonwebservices/FF9900' }],
+  ['devops.aws', { icon: 'AWS' }],
   ['devops.gcp', { icon: 'GCP', iconUrl: 'https://cdn.simpleicons.org/googlecloud/4285F4' }],
-  ['devops.azure', { icon: 'AZ', iconUrl: 'https://cdn.simpleicons.org/microsoftazure/0078D4' }],
-  ['quality.playwright', { icon: 'PW', iconUrl: 'https://cdn.simpleicons.org/playwright/2EAD33' }],
+  ['devops.azure', { icon: 'AZ' }],
+  ['devops.ci_cd', { icon: 'CI' }],
+  ['devops.iac', { icon: 'IaC', iconUrl: 'https://cdn.simpleicons.org/terraform/844FBA' }],
+  ['devops.monitoring', { icon: 'OBS' }],
+  ['quality.unit_testing', { icon: 'UT', iconUrl: 'https://cdn.simpleicons.org/vitest/6E9F18' }],
+  ['quality.integration_testing', { icon: 'IT' }],
+  ['quality.e2e_testing', { icon: 'E2E' }],
+  ['quality.playwright', { icon: 'PW' }],
+  ['quality.code_review', { icon: 'CR' }],
+  ['quality.performance', { icon: 'PERF' }],
+  ['security.authentication', { icon: 'AUTH' }],
+  ['security.authorization', { icon: 'ACL' }],
+  ['security.owasp', { icon: 'OWASP' }],
+  ['security.appsec', { icon: 'SEC' }],
+  ['security.secrets', { icon: 'KEY' }],
+  ['design.ux_research', { icon: 'UX' }],
+  ['design.ui_design', { icon: 'UI' }],
+  ['design.design_systems', { icon: 'DS' }],
+  ['design.product_management', { icon: 'PM' }],
+  ['design.prototyping', { icon: 'PROTO' }],
   ['design.figma', { icon: '✣', iconUrl: 'https://cdn.simpleicons.org/figma/F24E1E' }],
 ]);
 
 export const PRESET_SKILLS = STANDARD_SKILLS.map((skill) => {
   const name = CATALOG_DISPLAY_NAMES.get(skill.key) || skill.name;
   const icon = CATALOG_ICONS.get(skill.key) || {};
+  const iconLabel = icon.icon || skillAbbreviation(name);
   return {
     id: skill.key,
     name,
-    icon: icon.icon || name.slice(0, 2).toUpperCase(),
-    iconUrl: icon.iconUrl || null,
+    icon: iconLabel,
+    iconUrl: icon.iconUrl || buildSkillIconDataUri({ label: iconLabel, category: skill.category }),
     iconAlt: `${name} icon`,
     category: skill.category,
   };
 });
+
+function skillAbbreviation(name) {
+  return String(name || 'SK')
+    .replace(/[^a-zA-Z0-9/ ]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 4) || 'SK';
+}
+
+function buildSkillIconDataUri({ label, category }) {
+  const style = CATEGORY_ICON_STYLES.get(category) || {
+    fg: '#64DFC4',
+    bg: '#101820',
+    ring: '#8FB7FF',
+  };
+  const text = escapeSvg(String(label || 'SK').slice(0, 5));
+  const fontSize = text.length > 4 ? 17 : text.length > 3 ? 19 : text.length > 2 ? 22 : 25;
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">',
+    `<rect width="64" height="64" rx="16" fill="${style.bg}"/>`,
+    `<path d="M12 46L28 18L41 36L52 24" fill="none" stroke="${style.ring}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>`,
+    `<circle cx="16" cy="18" r="3.4" fill="${style.fg}" opacity=".95"/>`,
+    `<circle cx="48" cy="44" r="3.4" fill="${style.ring}" opacity=".9"/>`,
+    `<text x="32" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="800" fill="${style.fg}">${text}</text>`,
+    '</svg>',
+  ].join('');
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function escapeSvg(value) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 const PRESET_ORDER = new Map(PRESET_SKILLS.flatMap((skill, index) => [
   [skill.id, index],
