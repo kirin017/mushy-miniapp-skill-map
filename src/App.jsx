@@ -382,6 +382,18 @@ function ProfileAvatar({ summary }) {
   return <span className="profile-avatar">{summary.avatar}</span>;
 }
 
+function MemberAvatar({ member }) {
+  if (member?.avatarUrl) {
+    return (
+      <span className="face face--image">
+        <img src={member.avatarUrl} alt="" loading="lazy" onError={handleAssetFallback} />
+        <span className="profile-avatar-fallback" hidden>{member.avatar}</span>
+      </span>
+    );
+  }
+  return <span className="face">{member?.avatar}</span>;
+}
+
 function SkillIcon({ skill, className = '', compact = false }) {
   const classes = ['skill-icon', compact ? 'skill-icon--compact' : '', className].filter(Boolean).join(' ');
   return (
@@ -577,7 +589,7 @@ function Overview({
                 {heatMembers.map((member) => (
                   <tr key={member.id}>
                     <td>
-                      <span className="face">{member.avatar}</span>
+                      <MemberAvatar member={member} />
                       <span>
                         <strong>{member.name}</strong>
                         {member.handle && <small>{member.handle}</small>}
@@ -604,7 +616,7 @@ function Overview({
               {heatMembers.map((member) => (
                 <article key={member.id} className="heat-mobile-card">
                   <div>
-                    <span className="face">{member.avatar}</span>
+                    <MemberAvatar member={member} />
                     <span>
                       <strong>{member.name}</strong>
                       {member.handle && <small>{member.handle}</small>}
@@ -791,7 +803,7 @@ function DesktopCompanion({ skills, members, currentMember, selectedSkill, profi
         <div className="mini-member-list">
           {topMembers.map((member) => (
             <button key={member.id} type="button" onClick={() => onSelectSkill(selected.id)}>
-              <span className="face">{member.avatar}</span>
+              <MemberAvatar member={member} />
               <span>
                 <strong>{member.name}</strong>
                 <small>Level {member.level} · Quan tâm {member.interest}</small>
@@ -883,7 +895,7 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
       {selectedMember && (
         <section className="member-detail-card" aria-live="polite">
           <button type="button" aria-label="Đóng chi tiết thành viên" data-tooltip="Đóng" onClick={() => setSelectedMemberId(null)}>Close</button>
-          <span className="face">{selectedMember.avatar}</span>
+          <MemberAvatar member={selectedMember} />
           <div>
             <strong>{selectedMember.name}</strong>
             {selectedMember.handle && <small>{selectedMember.handle}</small>}
@@ -915,7 +927,7 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
 function MemberResult({ member, active, onSelect }) {
   return (
     <button className={`member-result${active ? ' active' : ''}`} type="button" onClick={onSelect} aria-expanded={active}>
-      <span className="face">{member.avatar}</span>
+      <MemberAvatar member={member} />
       <span>
         <strong>{member.name}</strong>
         {member.handle && <small>{member.handle}</small>}

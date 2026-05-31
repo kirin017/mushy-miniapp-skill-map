@@ -24,6 +24,16 @@ test('ProfileScreen keeps an always-available proposal skill add path', () => {
   assert.doesNotMatch(profileScreenSource, /disabled=\{!availableSkills\.length \|\| saving\}/);
 });
 
+test('Member surfaces use avatarUrl images instead of initials-only face fallback', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+
+  assert.match(source, /function MemberAvatar/);
+  assert.match(source, /member\?\.avatarUrl/);
+  assert.match(source, /<img src=\{member\.avatarUrl\}/);
+  assert.doesNotMatch(source, /<span className="face">\{member\.avatar\}<\/span>/);
+  assert.doesNotMatch(source, /<span className="face">\{selectedMember\.avatar\}<\/span>/);
+});
+
 test('ProfileScreen renders pending profile skills missing from the approved catalog', () => {
   const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
   const profileScreenStart = source.indexOf('function ProfileScreen');
