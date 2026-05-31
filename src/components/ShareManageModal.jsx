@@ -111,6 +111,7 @@ export default function ShareManageModal({ open, onClose }) {
             <button
               key={t.id}
               type="button"
+              data-active={tab === t.id ? 'true' : 'false'}
               onClick={() => setTab(t.id)}
               style={{
                 flex: 1,

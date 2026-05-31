@@ -1,0 +1,34 @@
+{
+  "locked": true,
+  "target": 7,
+  "target_min": 6,
+  "orchestration_mode": "Local controller",
+  "intent": "DELIVER",
+  "criteria": [
+    {
+      "name": "theme_asset_alignment",
+      "description": "Backgrounds and imagery are unified around technology, teamwork, learning, and skill management, with no random/off-topic image sources.",
+      "target": 7
+    },
+    {
+      "name": "component_consistency",
+      "description": "Cards, buttons, filters, tooltips, nav, and form states share one dark design language.",
+      "target": 7
+    },
+    {
+      "name": "state_quality",
+      "description": "Empty, loading, error, disabled, hover, focus, and active states are clear and consistent.",
+      "target": 7
+    },
+    {
+      "name": "logic_preservation",
+      "description": "Existing app behavior and data flow remain unchanged apart from UI semantics/copy.",
+      "target": 7
+    },
+    {
+      "name": "runtime_quality",
+      "description": "Tests/build and browser smoke pass without visible layout breakage or console errors caused by the change.",
+      "target": 7
+    }
+  ]
+}

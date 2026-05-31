@@ -1,0 +1,12 @@
+{
+  "orchestration_mode": "Local controller",
+  "agent_split": "Local only",
+  "reason": "The shared CSS cascade and coupled App JSX surfaces made local integration safer than parallel edits.",
+  "targeted_criteria": [
+    "theme_asset_alignment",
+    "component_consistency",
+    "state_quality",
+    "logic_preservation",
+    "runtime_quality"
+  ]
+}

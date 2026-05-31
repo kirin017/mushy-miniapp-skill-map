@@ -265,13 +265,34 @@ function SkillMapApp({ ctx }) {
     <main className="mushy-shell" ref={shellRef}>
       <div className="integration-strip">
         <ScopeSwitcher onManageGrants={() => setShareOpen(true)} />
-        <button type="button" onClick={reload} disabled={loading}>{loading ? 'Đang tải' : 'Làm mới'}</button>
+        <button type="button" onClick={reload} disabled={loading} data-tooltip={loading ? 'Đang đồng bộ dữ liệu' : 'Tải lại dữ liệu'}>
+          <span aria-hidden="true">{loading ? 'Sync' : 'Refresh'}</span>
+          {loading ? 'Đang tải' : 'Làm mới'}
+        </button>
       </div>
+      {loading && (
+        <section className="status-panel status-panel--loading" role="status" aria-live="polite">
+          <span className="status-orbit" aria-hidden="true" />
+          <div>
+            <strong>Đang đồng bộ Skill Map</strong>
+            <p>Cập nhật kỹ năng, thành viên và quyền workspace hiện tại.</p>
+          </div>
+        </section>
+      )}
       {loadError && (
         <section className="data-error" role="alert">
           <strong>Chưa tải được dữ liệu Skill Map</strong>
           <p>{loadError.message}</p>
           <small>Kiểm tra migration `002_team_skill_map` đã được apply qua Admin Portal và workspace đã enable miniapp.</small>
+        </section>
+      )}
+      {!loading && !loadError && members.length === 0 && (
+        <section className="status-panel status-panel--empty">
+          <span className="status-orbit" aria-hidden="true" />
+          <div>
+            <strong>Chưa có dữ liệu team</strong>
+            <p>Skill Map vẫn hiển thị catalog mẫu để bạn kiểm tra layout và bắt đầu thêm hồ sơ.</p>
+          </div>
         </section>
       )}
       {tab === 'overview' && (
@@ -432,8 +453,8 @@ function Overview({
             <h1>Skill <span className="inline-title-image" aria-hidden="true" /> Map</h1>
             <p>Hiểu năng lực team, tìm đúng người, nâng cấp kỹ năng theo thời gian thực.</p>
           </div>
-          <button className="ghost-icon" type="button" aria-label="Thông báo" aria-expanded={noticeOpen} onClick={() => setNoticeOpen((open) => !open)}>N</button>
-          <button className="ghost-icon" type="button" aria-label="Mở menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>M</button>
+          <button className="ghost-icon" type="button" aria-label="Thông báo" data-tooltip="Thông báo" aria-expanded={noticeOpen} onClick={() => setNoticeOpen((open) => !open)}>Alert</button>
+          <button className="ghost-icon" type="button" aria-label="Mở menu" data-tooltip="Menu nhanh" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>Menu</button>
         </header>
 
         {(noticeOpen || menuOpen) && (
@@ -497,7 +518,10 @@ function Overview({
               <button type="button" onClick={() => setOverviewSearch('')} aria-label="Xóa tìm kiếm">×</button>
             )}
           </label>
-          <button className="filter-pill" type="button" aria-expanded={filterOpen} onClick={() => setFilterOpen((open) => !open)}>Bộ lọc</button>
+          <button className="filter-pill" type="button" data-tooltip="Lọc heatmap" aria-expanded={filterOpen} onClick={() => setFilterOpen((open) => !open)}>
+            <span aria-hidden="true">Filter</span>
+            Bộ lọc
+          </button>
         </div>
 
         {filterOpen && (
@@ -606,7 +630,7 @@ function Overview({
         </section>
 
         <button className="gap-banner" type="button" onClick={onReport} data-gsap="image-reveal">
-          <span>!</span>
+          <span aria-hidden="true">Gap</span>
           <span>
             <strong>Kỹ năng cần bổ sung</strong>
             <small>Một số kỹ năng chưa có người ở mức Mentor hoặc Thành thạo.</small>
@@ -639,10 +663,7 @@ function Overview({
           <div className="motion-stack">
             {heatSkills.slice(0, 3).map((skill, index) => (
               <article key={skill.id} data-gsap="image-reveal">
-                <div
-                  className="motion-image"
-                  style={{ backgroundImage: `url(https://picsum.photos/seed/${skill.id}-capability/900/640)` }}
-                />
+                <div className="motion-image" data-skill-state={skill.risk ? 'risk' : 'stable'} aria-hidden="true" />
                 <span>{String(index + 1).padStart(2, '0')}</span>
                 <strong>{skill.name}</strong>
                 <small>{skill.risk ? 'Cần thêm mentor hoặc người làm chính.' : 'Đang có tín hiệu năng lực ổn định.'}</small>
@@ -849,7 +870,7 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
 
       {selectedMember && (
         <section className="member-detail-card" aria-live="polite">
-          <button type="button" aria-label="Đóng chi tiết thành viên" onClick={() => setSelectedMemberId(null)}>×</button>
+          <button type="button" aria-label="Đóng chi tiết thành viên" data-tooltip="Đóng" onClick={() => setSelectedMemberId(null)}>Close</button>
           <span className="face">{selectedMember.avatar}</span>
           <div>
             <strong>{selectedMember.name}</strong>
@@ -869,6 +890,12 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
           />
         ))}
       </div>
+      {rows.length === 0 && (
+        <section className="empty-panel">
+          <strong>Không có thành viên phù hợp</strong>
+          <p>Thử chọn kỹ năng khác hoặc xóa nội dung tìm kiếm hiện tại.</p>
+        </section>
+      )}
     </div>
   );
 }
@@ -985,7 +1012,7 @@ function ProfileScreen({
 
   return (
     <div className="screen compact-screen">
-      <TopBar title="Cá nhân" onBack={onBack} action="Set" onAction={() => setSettingsOpen((open) => !open)} />
+      <TopBar title="Cá nhân" onBack={onBack} action="Settings" onAction={() => setSettingsOpen((open) => !open)} />
       {settingsOpen && (
         <section className="profile-settings" aria-live="polite">
           <strong>Cài đặt cá nhân</strong>
@@ -1131,12 +1158,12 @@ function ProfileScreen({
           aria-describedby="delete-confirm-body"
         >
           <div>
-            <strong id="delete-confirm-title">Xoa ky nang {pendingDeleteSkill.name}?</strong>
-            <p id="delete-confirm-body">Hanh dong nay se xoa ky nang khoi ho so cua ban. Ban co the them lai sau neu can.</p>
+            <strong id="delete-confirm-title">Xóa kỹ năng {pendingDeleteSkill.name}?</strong>
+            <p id="delete-confirm-body">Hành động này sẽ xóa kỹ năng khỏi hồ sơ của bạn. Bạn có thể thêm lại sau nếu cần.</p>
           </div>
           <div className="delete-confirm-actions">
-            <button type="button" onClick={cancelRemoveSkill} disabled={saving}>Huy</button>
-            <button type="button" onClick={confirmRemoveSkill} disabled={saving}>{saving ? 'Dang xoa...' : 'Xoa ky nang'}</button>
+            <button type="button" onClick={cancelRemoveSkill} disabled={saving}>Hủy</button>
+            <button type="button" onClick={confirmRemoveSkill} disabled={saving}>{saving ? 'Đang xóa...' : 'Xóa kỹ năng'}</button>
           </div>
         </section>
       )}
@@ -1157,8 +1184,8 @@ function ProfileScreen({
                 {note && <p>{note}</p>}
               </div>
               <b>Quan tâm {interest}</b>
-              <button type="button" onClick={() => openEditForm(profileSkill)} aria-label={`Sửa ${skill.name}`} disabled={saving}>Edit</button>
-              <button type="button" onClick={() => requestRemoveSkill(profileSkill)} aria-label={`Xóa ${skill.name}`} disabled={saving}>Del</button>
+              <button type="button" onClick={() => openEditForm(profileSkill)} aria-label={`Sửa ${skill.name}`} data-tooltip="Sửa" disabled={saving}>Edit</button>
+              <button type="button" onClick={() => requestRemoveSkill(profileSkill)} aria-label={`Xóa ${skill.name}`} data-tooltip="Xóa" disabled={saving}>Delete</button>
             </article>
           );
         })}
@@ -1212,6 +1239,12 @@ function ReportScreen({ skills, onBack }) {
           </article>
         ))}
       </div>
+      {risks.length === 0 && (
+        <section className="empty-panel">
+          <strong>Chưa phát hiện khoảng trống kỹ năng</strong>
+          <p>Team hiện có đủ tín hiệu mentor/thành thạo trên các kỹ năng đang theo dõi.</p>
+        </section>
+      )}
       {fullOpen && (
         <section className="full-report" aria-live="polite">
           <strong>Tóm tắt báo cáo</strong>
@@ -1228,10 +1261,10 @@ function ReportScreen({ skills, onBack }) {
 function TopBar({ title, onBack, action, onAction }) {
   return (
     <header className="topbar">
-      <button type="button" onClick={onBack} aria-label="Quay lại">‹</button>
+      <button type="button" onClick={onBack} aria-label="Quay lại" data-tooltip="Quay lại">Back</button>
       <strong>{title}</strong>
       {action ? (
-        <button type="button" onClick={onAction} aria-label={title === 'Cá nhân' ? 'Cài đặt cá nhân' : `${title} action`}>{action}</button>
+        <button type="button" onClick={onAction} aria-label={title === 'Cá nhân' ? 'Cài đặt cá nhân' : `${title} action`} data-tooltip={title === 'Cá nhân' ? 'Cài đặt cá nhân' : `${title} action`}>{action}</button>
       ) : (
         <span aria-hidden="true" />
       )}
@@ -1259,9 +1292,9 @@ function uniqueBy(items, keyFn) {
 
 function BottomNav({ active, onChange }) {
   const items = [
-    ['overview', 'Home', 'Tổng quan'],
+    ['overview', 'Map', 'Tổng quan'],
     ['search', 'Find', 'Tìm kiếm'],
-    ['profile', 'Me', 'Cá nhân'],
+    ['profile', 'Profile', 'Cá nhân'],
     ['report', 'Risk', 'Báo cáo'],
   ];
   return (
