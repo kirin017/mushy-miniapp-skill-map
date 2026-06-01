@@ -1567,6 +1567,116 @@ button.level-cell:hover {
   padding: 0 14px;
 }
 
+.role-suggestion-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.role-suggestion-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.role-suggestion-head .text-field {
+  min-width: 0;
+}
+
+.role-suggestion-head button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #07100d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.role-chip-row,
+.role-suggestion-results {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.role-chip-row::-webkit-scrollbar,
+.role-suggestion-results::-webkit-scrollbar {
+  display: none;
+}
+
+.role-chip-row button,
+.role-suggestion-results button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.role-chip-row button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.role-suggestion-results button {
+  flex: 0 0 min(260px, 78vw);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.role-suggestion-results button.active {
+  border-color: rgba(100, 223, 196, 0.56);
+  background: rgba(100, 223, 196, 0.14);
+}
+
+.role-suggestion-results button > span {
+  min-width: 0;
+}
+
+.role-suggestion-results strong,
+.role-suggestion-results small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-suggestion-results strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.role-suggestion-results small,
+.role-suggestion-note {
+  color: var(--muted);
+}
+
+.role-suggestion-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.38;
+}
+
 .custom-skill-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2075,6 +2185,16 @@ button.level-cell:hover {
     right: 10px;
     left: 10px;
     bottom: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .role-suggestion-head {
+    grid-template-columns: 1fr;
+  }
+
+  .role-suggestion-head button {
+    width: 100%;
   }
 }
 
