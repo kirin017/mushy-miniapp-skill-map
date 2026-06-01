@@ -63,8 +63,8 @@ export function deriveTeamCoverage({ skills = [], members = [], query = '', mode
 
 export function deriveSkillCoverage({ skill, members = [] }) {
   const people = members.map((member) => {
-    const level = clampInteger(member.skills?.[skill.id], 0, 4);
-    const interest = clampInteger(member.interests?.[skill.id], 0, 3);
+    const level = clampInteger(member.skills?.[skill?.id], 0, 4);
+    const interest = clampInteger(member.interests?.[skill?.id], 0, 3);
     return { ...member, level, interest };
   });
 
@@ -76,7 +76,7 @@ export function deriveSkillCoverage({ skill, members = [] }) {
     .filter((member) => member.level >= 4)
     .sort(comparePeopleForLead);
   const backups = people
-    .filter((member) => member.level >= 2 && member.id !== primary?.id)
+    .filter((member) => member.level >= 2 && getMemberId(member) !== getMemberId(primary))
     .sort(comparePeopleForLead);
   const trainees = people
     .filter((member) => member.interest >= 2 && member.level <= 2)
@@ -86,7 +86,7 @@ export function deriveSkillCoverage({ skill, members = [] }) {
 
   return {
     skill,
-    category: skill.category || 'Custom',
+    category: skill?.category || 'Custom',
     status,
     action: STATUS_ACTIONS[status],
     primary,
@@ -112,12 +112,13 @@ function matchesMode(row, mode) {
 
 function matchesQuery(row, normalizedQuery) {
   if (!normalizedQuery) return true;
-  const peopleText = row.people.map((member) => `${member.name} ${member.handle}`).join(' ');
-  return normalizeText(`${row.skill.name} ${row.category} ${peopleText}`).includes(normalizedQuery);
+  const peopleText = row.people.map((member) => `${member.name || ''} ${member.handle || ''}`).join(' ');
+  return normalizeText(`${row.skill?.name || ''} ${row.category || ''} ${peopleText}`).includes(normalizedQuery);
 }
 
 function compareCoverageGroups(a, b) {
-  return groupSeverity(a) - groupSeverity(b) || a.category.localeCompare(b.category, 'vi');
+  return groupSeverity(a) - groupSeverity(b)
+    || String(a.category || '').localeCompare(String(b.category || ''), 'vi');
 }
 
 function groupSeverity(group) {
@@ -129,8 +130,8 @@ function groupSeverity(group) {
 
 function compareCoverageRows(a, b) {
   return STATUS_RANK.get(a.status) - STATUS_RANK.get(b.status)
-    || a.category.localeCompare(b.category, 'vi')
-    || a.skill.name.localeCompare(b.skill.name, 'vi');
+    || String(a.category || '').localeCompare(String(b.category || ''), 'vi')
+    || String(a.skill?.name || '').localeCompare(String(b.skill?.name || ''), 'vi');
 }
 
 function comparePeopleForLead(a, b) {
@@ -144,10 +145,15 @@ function compareNames(a, b) {
 function uniquePeople(people) {
   const seen = new Set();
   return people.filter((member) => {
-    if (!member?.id || seen.has(member.id)) return false;
-    seen.add(member.id);
+    const memberId = getMemberId(member);
+    if (!memberId || seen.has(memberId)) return false;
+    seen.add(memberId);
     return true;
   });
+}
+
+function getMemberId(member) {
+  return member?.id || member?.userId;
 }
 
 function normalizeText(value) {

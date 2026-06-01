@@ -54,6 +54,33 @@ test('deriveSkillCoverage marks primary plus backup as healthy', () => {
   assert.deepEqual(row.backups.map((member) => member.name), ['Chi Le', 'Binh Tran']);
 });
 
+test('deriveSkillCoverage uses userId-only members for backup exclusion and dedupe', () => {
+  const row = deriveSkillCoverage({
+    skill: skills[0],
+    members: [
+      {
+        userId: 'user-primary',
+        name: 'User Primary',
+        handle: '@primary',
+        skills: { react: 4 },
+        interests: { react: 0 },
+      },
+      {
+        userId: 'user-backup',
+        name: 'User Backup',
+        handle: '@backup',
+        skills: { react: 2 },
+        interests: { react: 0 },
+      },
+    ],
+  });
+
+  assert.equal(row.status, 'healthy');
+  assert.equal(row.primary.name, 'User Primary');
+  assert.deepEqual(row.backups.map((member) => member.name), ['User Backup']);
+  assert.deepEqual(row.people.map((member) => member.name), ['User Primary', 'User Backup']);
+});
+
 test('deriveSkillCoverage marks one primary and no backup as thin', () => {
   const row = deriveSkillCoverage({ skill: skills[1], members });
 
