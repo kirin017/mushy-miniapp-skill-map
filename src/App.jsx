@@ -1382,7 +1382,10 @@ function resolveProfileSkill(profileSkill, skillMap) {
 
 function ReportScreen({ teamCoverage, onBack }) {
   const [fullOpen, setFullOpen] = useState(false);
-  const risks = teamCoverage.actions;
+  const risks = teamCoverage.actions.map((row) => ({
+    ...row.skill,
+    total: row.primary ? 1 + row.backups.length : 0,
+  }));
   return (
     <div className="screen compact-screen">
       <TopBar title="Kỹ năng cần bổ sung" onBack={onBack} />
