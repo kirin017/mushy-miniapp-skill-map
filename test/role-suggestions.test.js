@@ -134,10 +134,10 @@ test('suggestRoleSkillsFallback filters stale keys through active catalog', () =
 
 test('filterSuggestedSkills maps catalog keys to profile catalog and removes existing profile skills', () => {
   const profileCatalog = [
-    { id: 'aiml.rag', skillId: 'skill-rag', name: 'RAG' },
-    { id: 'aiml.embeddings', skillId: 'skill-embeddings', name: 'Embeddings' },
+    { id: 'rag', catalogKey: 'aiml.rag', skillId: 'skill-rag', name: 'RAG' },
+    { id: 'embeddings', catalogKey: 'aiml.embeddings', skillId: 'skill-embeddings', name: 'Embeddings' },
   ];
-  const profileSkills = [{ id: 'aiml.rag' }, { skillId: 'skill-other' }];
+  const profileSkills = [{ id: 'rag' }, { skillId: 'skill-other' }];
 
   assert.deepEqual(
     filterSuggestedSkills({
@@ -151,7 +151,7 @@ test('filterSuggestedSkills maps catalog keys to profile catalog and removes exi
     }),
     [
       {
-        skill: { id: 'aiml.embeddings', skillId: 'skill-embeddings', name: 'Embeddings' },
+        skill: { id: 'embeddings', catalogKey: 'aiml.embeddings', skillId: 'skill-embeddings', name: 'Embeddings' },
         reason: 'Useful for search',
       },
     ],

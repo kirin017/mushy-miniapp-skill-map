@@ -72,6 +72,7 @@ test('composeSkillMapView derives heatmap members, skills, and current user prof
     currentUserId: 'u-me',
     skills: [
       { id: 'skill-react', name: 'React', category: 'Frontend', is_preset: true },
+      { id: 'skill-rag', name: 'RAG', category: 'AI/ML', is_preset: true, catalog_key: 'aiml.rag' },
       { id: 'skill-docker', name: 'Docker', category: 'DevOps', is_preset: true },
       { id: 'skill-security', name: 'Security', category: 'Security', is_preset: true },
     ],
@@ -87,6 +88,7 @@ test('composeSkillMapView derives heatmap members, skills, and current user prof
   });
 
   assert.equal(view.skills.find((skill) => skill.name === 'React').total, 2);
+  assert.equal(view.skills.find((skill) => skill.name === 'RAG')?.catalogKey, 'aiml.rag');
   assert.match(view.skills.find((skill) => skill.name === 'React').iconUrl, /^https:\/\/cdn\.simpleicons\.org\/react/);
   assert.equal(view.skills.find((skill) => skill.name === 'Docker').iconAlt, 'Docker icon');
   assert.equal(view.skills.find((skill) => skill.name === 'Security').risk, 1);

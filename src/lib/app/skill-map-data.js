@@ -322,6 +322,7 @@ export function composeSkillMapView({ currentUserId, currentUserProfile = null, 
 
   const displaySkills = skillRows.map((skill) => {
     const key = skillKey(skill.name);
+    const catalogKey = skill.catalog_key || matchCatalogSkill(skill.name).key || null;
     const levels = memberSkillRows
       .filter((row) => row.skill_id === skill.id)
       .map((row) => clampInteger(row.level, 0, 4));
@@ -330,6 +331,7 @@ export function composeSkillMapView({ currentUserId, currentUserProfile = null, 
     const preset = presetForSkill(skill, key);
     return {
       id: key,
+      catalogKey,
       skillId: skill.id,
       name: skill.name,
       icon: preset?.icon || skill.name.slice(0, 2).toUpperCase(),
