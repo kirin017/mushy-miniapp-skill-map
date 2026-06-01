@@ -647,7 +647,7 @@ function Overview({
           <span aria-hidden="true">Gap</span>
           <span>
             <strong>Hành động ưu tiên</strong>
-            <small>{teamCoverage.actions.length ? `${teamCoverage.actions.length} điểm coverage cần xử lý.` : 'Team chưa có coverage risk nổi bật.'}</small>
+            <small>{teamCoverage.actions.length ? `${teamCoverage.actions.length} điểm coverage cần xử lý.` : 'Team chưa có điểm coverage cần xử lý.'}</small>
           </span>
           <b>Xem chi tiết →</b>
         </button>
@@ -672,7 +672,7 @@ function Overview({
         <section className="panel motion-lab" data-gsap="desire">
           <div className="motion-lab-title" data-gsap="pin-title">
             <h2>Đọc năng lực như một bản đồ sống</h2>
-            <p>Mỗi ô level biến thành tín hiệu cho staffing, mentoring và kế hoạch học tập tiếp theo.</p>
+            <p>Mỗi hàng coverage biến thành tín hiệu cho owner, backup, mentoring và kế hoạch học tập tiếp theo.</p>
           </div>
           <div className="motion-stack">
             {teamCoverage.actions.slice(0, 3).map((row, index) => (
@@ -888,7 +888,7 @@ function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSel
             </span>
           ))}
         </div>
-        <button className="primary-wide" type="button" onClick={onShowHeatmap}>Xem heatmap với {selected.name}</button>
+        <button className="primary-wide" type="button" onClick={onShowHeatmap}>Xem Team Coverage với {selected.name}</button>
       </section>
 
       {selectedMember && (
