@@ -105,7 +105,7 @@ test('deriveTeamCoverage filters by skill, category, and related member names', 
   );
   assert.deepEqual(
     deriveTeamCoverage({ skills, members, query: 'Binh' }).allRows.map((row) => row.skill.name),
-    ['React', 'RAG'],
+    ['RAG', 'React'],
   );
   assert.deepEqual(
     deriveTeamCoverage({ skills, members, query: 'security' }).allRows.map((row) => row.skill.name),
