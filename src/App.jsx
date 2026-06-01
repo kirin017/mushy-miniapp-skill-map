@@ -1368,9 +1368,10 @@ function resolveProfileSkill(profileSkill, skillMap) {
 
 function ReportScreen({ teamCoverage, onBack }) {
   const [fullOpen, setFullOpen] = useState(false);
-  const critical = teamCoverage.actions.filter((row) => row.status === 'missing');
-  const thin = teamCoverage.actions.filter((row) => row.status === 'thin');
-  const growth = teamCoverage.actions.filter((row) => row.status === 'growing');
+  const actions = teamCoverage?.actions ?? [];
+  const critical = actions.filter((row) => row.status === 'missing');
+  const thin = actions.filter((row) => row.status === 'thin');
+  const growth = actions.filter((row) => row.status === 'growing');
   const groups = [
     { id: 'critical', title: 'Critical', rows: critical },
     { id: 'thin', title: 'Thin coverage', rows: thin },
@@ -1400,14 +1401,14 @@ function ReportScreen({ teamCoverage, onBack }) {
                   </span>
                 </div>
                 <b className={`coverage-status coverage-status--${row.status}`}>{coverageStatusLabel(row.status)}</b>
-                <em>›</em>
+                <em aria-hidden="true">›</em>
               </article>
             ))}
           </section>
         ))}
       </div>
 
-      {teamCoverage.actions.length === 0 && (
+      {actions.length === 0 && (
         <section className="empty-panel">
           <strong>Chưa có hành động coverage ưu tiên</strong>
           <p>Team hiện có primary và backup đủ tốt cho các kỹ năng đang theo dõi.</p>
@@ -1457,9 +1458,10 @@ function coverageStatusLabel(status) {
 }
 
 function buildCoverageReportSummary(teamCoverage) {
-  const missing = teamCoverage.statusCounts.missing;
-  const thin = teamCoverage.statusCounts.thin;
-  const growing = teamCoverage.statusCounts.growing;
+  const statusCounts = teamCoverage?.statusCounts ?? {};
+  const missing = statusCounts.missing ?? 0;
+  const thin = statusCounts.thin ?? 0;
+  const growing = statusCounts.growing ?? 0;
   if (missing + thin + growing === 0) {
     return 'Không có khoảng trống coverage nổi bật trong dữ liệu hiện tại.';
   }

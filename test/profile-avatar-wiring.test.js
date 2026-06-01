@@ -105,7 +105,12 @@ test('ReportScreen renders coverage actions instead of fake risk percentages', (
   const reportSource = source.slice(reportScreenStart, topBarStart);
 
   assert.match(reportSource, /Hành động ưu tiên/);
-  assert.match(reportSource, /teamCoverage\.actions/);
+  assert.match(reportSource, /teamCoverage\?\.actions \?\? \[\]/);
+  assert.match(reportSource, /actions\.filter/);
+  assert.match(reportSource, /actions\.length === 0/);
   assert.match(reportSource, /Primary:/);
+  assert.match(reportSource, /aria-hidden="true"/);
+  assert.match(source, /teamCoverage\?\.statusCounts \?\? \{\}/);
+  assert.match(source, /statusCounts\.missing \?\? 0/);
   assert.doesNotMatch(reportSource, /skill\.total \* 14/);
 });
