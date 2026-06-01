@@ -99,7 +99,7 @@ Một **mini-app** = web app độc lập trong hệ Mushy Super App:
 - **Frontend**: Vite + React, deploy trên Vercel (1 project per mini-app)
 - **Backend**: `api/` thư mục → Vercel Serverless Functions
 - **Database**: schema riêng `app_{slug}` trong Supabase chung của Mushy
-- **Chạy 2 mode**: trong WebView của Shell (production native app) hoặc browser (dev, có bridge mock)
+- **Chạy 2 mode**: trong WebView của Shell (production native app) hoặc browser dev với context thật từ `.env`; native-only bridge call sẽ fail rõ nếu không có Shell.
 
 Đọc thêm `CLAUDE.md` ở repo gốc Mushy để hiểu triết lý + kiến trúc tổng thể.
 
@@ -385,7 +385,7 @@ alter table app_{slug}.tablename replica identity full;
 |---|---|---|
 | `context.js` | `getContext()`, `isInShell()` | Lấy `{ token, userId, workspaceId, workspaceSlug, role, userDevMode, isAppOwner }` |
 | `supabase.js` | `db`, `dbPublic`, `getSupabase()`, `getPublicSupabase()` | `db` scoped vào `app_{slug}` (theo VITE_APP_ENV → có thể là `_dev`); `dbPublic` cho public.* (hiếm dùng) |
-| `bridge.js` | `callNative('TYPE', payload)`, `bridge.*` (typed helpers) | Native bridge. Type: `GET_LOCATION` / `OPEN_CAMERA` / `PICK_FILE` / `PUSH_NOTIFICATION` / `OPEN_TEL` / `OPEN_URL` / `SHARE` / `HAPTIC` / `SCAN_QR` / `BIOMETRIC` / `REFRESH_TOKEN` / `SAVE_IMAGE` / `COPY_TEXT` / `GET_CLIPBOARD` / `OPEN_SETTINGS` / `SAVE_CONTACT` / `PICK_CONTACT` / `ADD_CALENDAR_EVENT`. Helpers ưu tiên (`bridge.tel`, `bridge.share`, `bridge.haptic`, `bridge.scanQr`, `bridge.biometric`, `bridge.saveImage`, `bridge.copyText`, `bridge.getClipboard`, `bridge.openSettings`, `bridge.saveContact`, `bridge.pickContact`, `bridge.addCalendarEvent`) — auto-fallback browser khi DEV. Mock tự bật khi không có Shell. Generic non-http scheme (zalo://, whatsapp://, maps://...) tự được Shell route ra Linking — `<a href="...">` cũng work. |
+| `bridge.js` | `callNative('TYPE', payload)`, `bridge.*` (typed helpers) | Native bridge. Type: `GET_LOCATION` / `OPEN_CAMERA` / `PICK_FILE` / `PUSH_NOTIFICATION` / `OPEN_TEL` / `OPEN_URL` / `SHARE` / `HAPTIC` / `SCAN_QR` / `BIOMETRIC` / `REFRESH_TOKEN` / `SAVE_IMAGE` / `COPY_TEXT` / `GET_CLIPBOARD` / `OPEN_SETTINGS` / `SAVE_CONTACT` / `PICK_CONTACT` / `ADD_CALENDAR_EVENT`. Helpers ưu tiên (`bridge.tel`, `bridge.share`, `bridge.haptic`, `bridge.scanQr`, `bridge.biometric`, `bridge.saveImage`, `bridge.copyText`, `bridge.getClipboard`, `bridge.openSettings`, `bridge.saveContact`, `bridge.pickContact`, `bridge.addCalendarEvent`) dùng browser fallback chỉ khi có Web API thật; native-only call reject rõ khi không có Shell. Generic non-http scheme (zalo://, whatsapp://, maps://...) tự được Shell route ra Linking — `<a href="...">` cũng work. |
 | `storage.js` | `upload(file, folder)`, `getViewUrl(objectKey)` | Bucket `miniapp-{slug}` **auto-tạo bởi Admin Portal khi register app** (giống DNS). Mini-app dev KHÔNG viết storage SQL. Path: `{ws_id}/[dev/]{folder}/{uuid}.{ext}` (dev có prefix `dev/` để dễ wipe). Lưu `object_key` vào DB. R2 opt-in qua `VITE_USE_R2=true`. |
 | `realtime.js` | `subscribeToTable(table, workspaceId, cb)`, `subscribeBroadcast()` | Trả unsubscribe — gọi khi unmount! |
 | `queue.js` | `enqueue(jobType, payload)`, `onJob(jobId, cb)` | Tác vụ nặng async qua `public.job_queue` |
@@ -484,7 +484,6 @@ miniapp-{slug}/
 │   └── 001_init_example.sql  ← template migration đúng convention
 ├── scripts/
 │   ├── setup.js              ← npm run dev:setup
-│   ├── seed.js               ← npm run dev:seed
 │   └── refresh-token.js      ← npm run dev:token
 └── public/                   ← static assets
 ```
@@ -509,7 +508,7 @@ cd miniapp-{slug}
 cp .env.example .env    # giữ placeholder VITE_DEV_*, chưa cần điền
 npm install
 npm run dev:setup       # ↓ giải thích chi tiết bên dưới
-npm run dev             # localhost:5173 (browser, có bridge mock)
+npm run dev             # localhost:5173 (browser, dùng VITE_DEV_* context)
 ```
 
 ### 8.1.1 `npm run dev:setup` — flow auto-config local DEV
@@ -519,7 +518,7 @@ Script tự động:
 2. **Nhập OTP** từ mail → verify → lấy JWT access token (1h expiry)
 3. **List workspace** bạn là member → bạn chọn 1
 4. **Auto ghi 4 biến** vào `.env`:
-   - `VITE_DEV_TOKEN` — JWT access token (mock cho `getContext()`)
+   - `VITE_DEV_TOKEN` — JWT access token cho `getContext()` khi chạy browser local
    - `VITE_DEV_WORKSPACE_ID` — workspace_id đã chọn
    - `VITE_DEV_USER_ID` — auth.users.id của bạn
    - `VITE_DEV_ROLE` — role của bạn trong workspace đó (owner/admin/member)
@@ -638,7 +637,7 @@ Cả 2 URL `mushy-miniapp-{slug}.vercel.app` + `mushy-miniapp-{slug}-git-dev.ver
 
 ### 8.5 Hàng ngày
 - JWT hết hạn sau 1 giờ → `npm run dev:token` để refresh
-- Test trong browser (mock) trước, sau đó qua Vercel preview + Expo Go (Shell thật)
+- Test trong browser với dữ liệu thật trước, sau đó qua Vercel preview + Expo Go (Shell thật)
 - Sửa schema → submit migration qua Reviewer (8.4)
 
 ### 8.6 Visibility lifecycle — workflow chuẩn từ dev → ship

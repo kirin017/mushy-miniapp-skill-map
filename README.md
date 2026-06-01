@@ -44,16 +44,15 @@ Token hết hạn sau 1h → `npm run dev:token` để refresh (không phải lo
 
 | Lệnh | Tác dụng |
 |---|---|
-| `npm run dev` | Vite dev server, port 5173 (browser mode + bridge mock) |
+| `npm run dev` | Vite dev server, port 5173 (browser mode + real `VITE_DEV_*` context) |
 | `npm run dev:setup` | 1 lần: login Mushy, chọn workspace, ghi `VITE_DEV_*` vào `.env` |
 | `npm run dev:token` | Refresh JWT (hết hạn sau 1 giờ) |
-| `npm run dev:seed` | Insert sample data theo schema mini-app |
 | `npm run build` | Build production |
 | `npm run preview` | Preview build local |
 
 ## Workflow tóm tắt
 
-1. **Code local** → `npm run dev` test trong browser (bridge mock)
+1. **Code local** → `npm run dev` test trong browser với context thật từ `.env`
 2. **Push lên GitHub** (⚠️ phải có **cả 2 branch `main` + `dev`** trước khi connect Vercel — xem [Branch convention](#branch-convention)) → Vercel project/preview alias chuẩn `https://mushy-miniapp-{slug}.vercel.app`
 3. **Đăng ký vào Mushy** qua Admin Portal (https://admin.mini.mushy-app.com):
    - Slug + Tên + Preview URL (Vercel)

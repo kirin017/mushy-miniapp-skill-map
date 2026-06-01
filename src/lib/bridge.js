@@ -1,5 +1,6 @@
 // JS Bridge: Mini-app ↔ Shell native.
-// Khi không có Shell (DEV trong browser), tự động dùng mock.
+// Native-only operations require the Mushy Shell. Typed helpers may provide
+// browser fallbacks when a real Web API exists.
 //
 // Sử dụng:
 //   const loc = await callNative('GET_LOCATION');
@@ -37,7 +38,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function callNative(type, payload = {}, opts = {}) {
-  if (!isInShell()) return mock(type, payload);
+  if (!isInShell()) return unsupportedNativeOperation(type);
 
   const timeoutMs =
     opts.timeout ?? (INTERACTIVE_TYPES.has(type) ? INTERACTIVE_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
@@ -53,7 +54,7 @@ export function callNative(type, payload = {}, opts = {}) {
   });
 }
 
-// Typed helpers — recommended. Tự fallback browser khi không có Shell:
+// Typed helpers — recommended. Fallback browser khi không có Shell:
 //   - tel/url: dùng window.location = `tel:...` / window.open(url)
 //   - share: dùng navigator.share (mobile) hoặc clipboard fallback
 //   - haptic: no-op trong browser
@@ -154,65 +155,6 @@ export const bridge = {
   addCalendarEvent: (payload) => callNative('ADD_CALENDAR_EVENT', payload),
 };
 
-// ---------- Mocks (DEV only, low-level callNative path) ----------
-async function mock(type, payload) {
-  console.log('[bridge:mock]', type, payload);
-  await sleep(200);
-  switch (type) {
-    case 'GET_LOCATION':
-      return { lat: 10.7769, lng: 106.7009, accuracy: 12 };
-    case 'OPEN_CAMERA':
-      return { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=', width: 1, height: 1 };
-    case 'PICK_FILE':
-      return { name: 'mock.txt', size: 12, mimeType: 'text/plain', uri: 'mock://file' };
-    case 'PUSH_NOTIFICATION':
-      console.log('[mock push]', payload.title, '—', payload.body);
-      return { scheduled: true };
-    case 'OPEN_TEL':
-      console.log('[mock tel]', payload.phone);
-      return { opened: true };
-    case 'OPEN_URL':
-      console.log('[mock open-url]', payload.url);
-      return { opened: true };
-    case 'SHARE':
-      console.log('[mock share]', payload);
-      return { shared: true, action: 'mock' };
-    case 'HAPTIC':
-      console.log('[mock haptic]', payload.type);
-      return { ok: true };
-    case 'SCAN_QR':
-      // Mock: trả giá trị giả để dev test flow downstream.
-      console.log('[mock scan-qr] returning fake');
-      return { data: 'MOCK-QR-DATA', type: 'qr' };
-    case 'BIOMETRIC':
-      console.log('[mock biometric] auto-success');
-      return { success: true };
-    case 'REFRESH_TOKEN':
-      throw new Error('REFRESH_TOKEN bridge chỉ chạy trong Shell. Dev local: npm run dev:token.');
-    case 'SAVE_IMAGE':
-      console.log('[mock save-image]', payload?.dataUrl ? 'dataUrl' : payload?.url || 'base64');
-      return { saved: true };
-    case 'COPY_TEXT':
-      try { await navigator.clipboard.writeText(String(payload?.text ?? '')); } catch { /* noop */ }
-      console.log('[mock copy-text]', payload?.text);
-      return { copied: true };
-    case 'GET_CLIPBOARD':
-      try { return { text: await navigator.clipboard.readText() }; } catch { return { text: '' }; }
-    case 'OPEN_SETTINGS':
-      console.log('[mock open-settings] (browser no-op)');
-      return { opened: true };
-    case 'SAVE_CONTACT':
-      console.log('[mock save-contact]', payload?.name, payload?.phone);
-      return { saved: true, id: 'mock-contact' };
-    case 'PICK_CONTACT':
-      console.log('[mock pick-contact] returning fake');
-      return { name: 'Mock Contact', phone: '0900000000' };
-    case 'ADD_CALENDAR_EVENT':
-      console.log('[mock add-calendar-event]', payload?.title);
-      return { action: 'saved', saved: true };
-    default:
-      throw new Error(`Bridge mock chưa hỗ trợ type: ${type}`);
-  }
+function unsupportedNativeOperation(type) {
+  return Promise.reject(new Error(`${type} chỉ chạy trong Mushy Shell native`));
 }
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
