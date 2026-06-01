@@ -541,7 +541,7 @@ function Overview({
               <button type="button" onClick={() => setOverviewSearch('')} aria-label="Xóa tìm kiếm">×</button>
             )}
           </label>
-          <button className="filter-pill" type="button" data-tooltip="Lọc heatmap" aria-expanded={filterOpen} onClick={() => setFilterOpen((open) => !open)}>
+          <button className="filter-pill" type="button" data-tooltip="Lọc Team Coverage" aria-expanded={filterOpen} onClick={() => setFilterOpen((open) => !open)}>
             <span aria-hidden="true">Filter</span>
             Bộ lọc
           </button>
@@ -679,6 +679,7 @@ function Overview({
               <article key={row.skill.id} data-gsap="image-reveal">
                 <div className="motion-image" data-skill-state={row.status === 'healthy' ? 'stable' : 'risk'} aria-hidden="true" />
                 <span>{String(index + 1).padStart(2, '0')}</span>
+                <em className={`coverage-status coverage-status--${row.status}`}>{coverageStatusLabel(row.status)}</em>
                 <strong>{row.skill.name}</strong>
                 <small>{row.action}</small>
               </article>
