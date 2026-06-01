@@ -19,6 +19,13 @@ import {
   rejectPendingSkill,
   saveProfileSkill,
 } from './lib/app/skill-map-data.js';
+import {
+  ROLE_PRESETS,
+  buildCatalogPayload,
+  filterSuggestedSkills,
+  suggestRoleSkillsFallback,
+} from './lib/app/role-suggestions.js';
+import { STANDARD_SKILLS } from './lib/app/skill-catalog.js';
 
 const LEVEL_LABELS = ['Học', 'Cơ bản', 'Làm được', 'Thành thạo', 'Mentor'];
 const LEVEL_BADGES = ['0 Học', '1 Cơ bản', '2 Làm được', '3 Thành thạo', '4 Mentor'];
@@ -338,6 +345,8 @@ function SkillMapApp({ ctx }) {
 
       {tab === 'profile' && (
         <ProfileScreen
+          ctx={ctx}
+          activeScope={activeScope}
           profileSkillCatalog={skills}
           profileSkills={profileSkills}
           onSaveProfileSkill={handleSaveProfileSkill}
@@ -940,6 +949,8 @@ function MemberResult({ member, active, onSelect }) {
 }
 
 function ProfileScreen({
+  ctx,
+  activeScope,
   profileSkillCatalog,
   profileSkills,
   onSaveProfileSkill,
@@ -952,11 +963,21 @@ function ProfileScreen({
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState(null);
+  const [roleText, setRoleText] = useState('AI Engineer');
+  const [roleSuggesting, setRoleSuggesting] = useState(false);
+  const [roleSuggestionError, setRoleSuggestionError] = useState(null);
+  const [roleSuggestionSource, setRoleSuggestionSource] = useState(null);
+  const [roleSuggestions, setRoleSuggestions] = useState([]);
   const skillMap = new Map(profileSkillCatalog.map((skill) => [skill.id, skill]));
   const profileSkillMap = new Map(profileSkills.map((profileSkill) => [profileSkillKey(profileSkill), profileSkill]));
   const availableSkills = profileSkillCatalog.filter(
     (skill) => skill.skillId && !profileSkills.some((profileSkill) => profileSkill.id === skill.id),
   );
+  const visibleRoleSuggestions = useMemo(() => filterSuggestedSkills({
+    suggestions: roleSuggestions,
+    profileSkillCatalog,
+    profileSkills,
+  }), [profileSkillCatalog, profileSkills, roleSuggestions]);
   const profileSummary = buildProfileSummary({
     currentMember,
     profileSkills,
@@ -1034,6 +1055,64 @@ function ProfileScreen({
   const pendingDeleteProfileSkill = pendingDeleteId ? profileSkillMap.get(pendingDeleteId) : null;
   const pendingDeleteSkill = pendingDeleteProfileSkill ? resolveProfileSkill(pendingDeleteProfileSkill, skillMap) : null;
 
+  function applyFallbackRoleSuggestions(nextRoleText) {
+    const fallback = suggestRoleSkillsFallback(nextRoleText, STANDARD_SKILLS, 10);
+    setRoleSuggestions(fallback);
+    setRoleSuggestionSource(fallback.length ? 'fallback' : 'empty');
+    return fallback;
+  }
+
+  async function requestRoleSuggestions(nextRoleText = roleText) {
+    const trimmedRole = String(nextRoleText || '').trim();
+    setRoleText(trimmedRole);
+    setRoleSuggestionError(null);
+
+    if (!trimmedRole) {
+      setRoleSuggestions([]);
+      setRoleSuggestionSource('empty');
+      return;
+    }
+
+    setRoleSuggesting(true);
+    try {
+      const response = await fetch('/api/ai-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.token}`,
+          'X-Workspace-Id': activeScope.workspaceId,
+          'X-Home-Workspace-Id': ctx.workspaceId,
+        },
+        body: JSON.stringify({
+          action: 'suggest_role_skills',
+          roleText: trimmedRole,
+          catalog: buildCatalogPayload(STANDARD_SKILLS),
+          maxSuggestions: 10,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json.error || `role suggestion failed: ${response.status}`);
+      }
+      const suggestions = Array.isArray(json.suggestions) ? json.suggestions : [];
+      setRoleSuggestions(suggestions);
+      setRoleSuggestionSource(suggestions.length ? 'ai' : 'empty');
+    } catch (suggestError) {
+      setRoleSuggestionError(suggestError);
+      applyFallbackRoleSuggestions(trimmedRole);
+    } finally {
+      setRoleSuggesting(false);
+    }
+  }
+
+  function selectRoleSuggestion(skill) {
+    setDraft((current) => ({
+      ...current,
+      customSkill: false,
+      skillId: skill.id,
+    }));
+  }
+
   return (
     <div className="screen compact-screen">
       <TopBar title="Cá nhân" onBack={onBack} action="Settings" onAction={() => setSettingsOpen((open) => !open)} />
@@ -1070,6 +1149,61 @@ function ProfileScreen({
             <strong>{draft.mode === 'edit' ? 'Sửa kỹ năng' : 'Thêm kỹ năng mới'}</strong>
               <button type="button" onClick={() => setDraft(null)} disabled={saving}>Đóng</button>
           </div>
+
+          {draft.mode === 'add' && (
+            <section className="role-suggestion-panel" aria-label="Gợi ý kỹ năng theo role">
+              <div className="role-suggestion-head">
+                <label className="text-field">
+                  <span>Role</span>
+                  <input
+                    value={roleText}
+                    maxLength="80"
+                    onChange={(event) => setRoleText(event.target.value)}
+                    placeholder="Ví dụ: AI engineer, frontend dev..."
+                  />
+                </label>
+                <button type="button" onClick={() => requestRoleSuggestions()} disabled={saving || roleSuggesting}>
+                  {roleSuggesting ? 'Đang gợi ý...' : 'Gợi ý skill'}
+                </button>
+              </div>
+              <div className="role-chip-row" aria-label="Role phổ biến">
+                {ROLE_PRESETS.map((role) => (
+                  <button
+                    key={role.label}
+                    type="button"
+                    onClick={() => requestRoleSuggestions(role.label)}
+                    disabled={saving || roleSuggesting}
+                  >
+                    {role.label}
+                  </button>
+                ))}
+              </div>
+              {roleSuggestionError && roleSuggestionSource === 'fallback' && (
+                <p className="role-suggestion-note">AI chưa sẵn sàng, đang dùng gợi ý mặc định.</p>
+              )}
+              {roleSuggestionSource === 'empty' && !roleSuggesting && (
+                <p className="role-suggestion-note">Chưa tìm thấy gợi ý phù hợp trong catalog.</p>
+              )}
+              {visibleRoleSuggestions.length > 0 && (
+                <div className="role-suggestion-results">
+                  {visibleRoleSuggestions.map(({ skill, reason }) => (
+                    <button
+                      key={skill.id}
+                      type="button"
+                      className={draft.skillId === skill.id && !draft.customSkill ? 'active' : ''}
+                      onClick={() => selectRoleSuggestion(skill)}
+                    >
+                      <SkillIcon skill={skill} compact />
+                      <span>
+                        <strong>{skill.name}</strong>
+                        {reason && <small>{reason}</small>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="skill-picker" role="listbox" aria-label="Chọn kỹ năng">
             {(draft.mode === 'edit'
