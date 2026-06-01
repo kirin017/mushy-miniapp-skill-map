@@ -29,7 +29,6 @@ import {
 import { STANDARD_SKILLS } from './lib/app/skill-catalog.js';
 
 const LEVEL_LABELS = ['Học', 'Cơ bản', 'Làm được', 'Thành thạo', 'Mentor'];
-const LEVEL_BADGES = ['0 Học', '1 Cơ bản', '2 Làm được', '3 Thành thạo', '4 Mentor'];
 const INITIAL_SKILLS = PRESET_SKILLS.map((skill) => ({ ...skill, skillId: null, total: 0, risk: 1 }));
 const EMPTY_VIEW = { skills: INITIAL_SKILLS, members: [], profileSkills: [] };
 
@@ -444,35 +443,22 @@ function Overview({
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [heatMode, setHeatMode] = useState('top');
+  const [coverageMode, setCoverageMode] = useState('grouped');
   const searchText = overviewSearch.trim();
   const normalizedSearch = normalizeText(searchText);
-  const skillMatches = useMemo(() => {
-    if (!normalizedSearch) return skills.slice(0, 5);
-    const matches = skills.filter((skill) => normalizeText(skill.name).includes(normalizedSearch));
-    return matches.length ? matches.slice(0, 5) : skills.slice(0, 5);
-  }, [normalizedSearch, skills]);
-  const memberMatches = useMemo(() => {
-    if (!normalizedSearch) return members.slice(0, 6);
-    const matchedSkillIds = skills
-      .filter((skill) => normalizeText(skill.name).includes(normalizedSearch))
-      .map((skill) => skill.id);
-    return members.filter((member) => {
-      const memberText = normalizeText(`${member.name} ${member.handle}`);
-      const matchesMember = memberText.includes(normalizedSearch);
-      const matchesSkill = matchedSkillIds.some((skillId) => (member.skills[skillId] || 0) > 0);
-      return matchesMember || matchesSkill;
-    });
-  }, [members, normalizedSearch, skills]);
-  const heatSkills = heatMode === 'risk'
-    ? skills.filter((skill) => skill.risk).slice(0, 5)
-    : skillMatches;
-  const heatMembers = memberMatches.slice(0, 6);
-  const searchMode = normalizedSearch
-    ? `${memberMatches.length} kết quả phù hợp`
-    : heatMode === 'risk'
-      ? 'Hiển thị kỹ năng cần bổ sung'
-      : 'Hiển thị top kỹ năng';
+  const coverage = useMemo(() => deriveTeamCoverage({
+    skills,
+    members,
+    query: overviewSearch,
+    mode: coverageMode,
+  }), [coverageMode, members, overviewSearch, skills]);
+  const coverageStatus = normalizedSearch
+    ? `${coverage.visibleRowCount} kỹ năng phù hợp`
+    : coverageMode === 'needs'
+      ? `${coverage.statusCounts.missing + coverage.statusCounts.thin} hành động cần xử lý`
+      : coverageMode === 'growth'
+        ? `${coverage.statusCounts.growing} kỹ năng đang phát triển`
+        : 'Theo nhóm kỹ năng';
   const profileSummary = buildProfileSummary({ currentMember, profileSkills, skills });
   const pendingSkills = uniqueBy(
     members.flatMap((member) => (
@@ -528,8 +514,8 @@ function Overview({
               <i /><i /><i /><i /><i /><i /><i /><i /><i />
             </span>
             <span>
-              <strong>Heatmap tổng quan</strong>
-              <small>Xem năng lực theo kỹ năng</small>
+              <strong>Team Coverage</strong>
+              <small>Xem owner, backup và trainee</small>
             </span>
           </button>
           <button className="quick-card" type="button" onClick={onSearch}>
@@ -562,115 +548,106 @@ function Overview({
         </div>
 
         {filterOpen && (
-          <section className="filter-panel" aria-label="Bộ lọc heatmap">
-            <button type="button" className={heatMode === 'top' ? 'active' : ''} onClick={() => setHeatMode('top')}>Top kỹ năng</button>
-            <button type="button" className={heatMode === 'risk' ? 'active' : ''} onClick={() => setHeatMode('risk')}>Cần bổ sung</button>
+          <section className="filter-panel" aria-label="Bộ lọc Team Coverage">
+            <button type="button" className={coverageMode === 'grouped' ? 'active' : ''} onClick={() => setCoverageMode('grouped')}>Theo nhóm</button>
+            <button type="button" className={coverageMode === 'needs' ? 'active' : ''} onClick={() => setCoverageMode('needs')}>Cần xử lý</button>
+            <button type="button" className={coverageMode === 'growth' ? 'active' : ''} onClick={() => setCoverageMode('growth')}>Đang phát triển</button>
             <button type="button" onClick={() => setOverviewSearch('')}>Xóa tìm kiếm</button>
           </section>
         )}
 
-        <section className="panel heat-panel" data-gsap="image-reveal">
+        <section className="panel coverage-panel" data-gsap="image-reveal">
           <div className="panel-head">
             <div>
-              <h2>Heatmap năng lực</h2>
-              <small>{searchMode}</small>
+              <h2>Team Coverage</h2>
+              <small>{coverageStatus}</small>
             </div>
             <button
               className="tiny-select"
               type="button"
-              aria-label="Đổi chế độ heatmap"
-              onClick={() => setHeatMode((mode) => (mode === 'top' ? 'risk' : 'top'))}
+              aria-label="Đổi chế độ Team Coverage"
+              onClick={() => setCoverageMode((mode) => {
+                if (mode === 'grouped') return 'needs';
+                if (mode === 'needs') return 'growth';
+                return 'grouped';
+              })}
             >
-              {heatMode === 'top' ? 'Top kỹ năng' : 'Cần bổ sung'}⌄
+              {coverageMode === 'grouped' ? 'Theo nhóm' : coverageMode === 'needs' ? 'Cần xử lý' : 'Đang phát triển'}⌄
             </button>
           </div>
-          <div className="heat-scroll">
-            <table className="skill-heatmap">
-              <thead>
-                <tr>
-                  <th>Thành viên</th>
-                  {heatSkills.map((skill) => (
-                    <th key={skill.id}>
-                      <SkillIcon skill={skill} />
-                      {skill.name}
-                    </th>
-                  ))}
-                  <th>+2</th>
-                </tr>
-              </thead>
-              <tbody>
-                {heatMembers.map((member) => (
-                  <tr key={member.id}>
-                    <td>
-                      <MemberAvatar member={member} />
-                      <span>
-                        <strong>{member.name}</strong>
-                        {member.handle && <small>{member.handle}</small>}
+          <div className="coverage-groups">
+            {coverage.groups.map((group) => (
+              <section className="coverage-group" key={group.category}>
+                <header>
+                  <div>
+                    <strong>{group.category}</strong>
+                    <small>{group.skillCount} kỹ năng</small>
+                  </div>
+                  <div className="coverage-counts" aria-label={`Tổng quan ${group.category}`}>
+                    <span className="status-missing">{group.missingCount}</span>
+                    <span className="status-thin">{group.thinCount}</span>
+                    <span className="status-growing">{group.growingCount}</span>
+                    <span className="status-healthy">{group.healthyCount}</span>
+                  </div>
+                </header>
+
+                <div className="coverage-rows">
+                  {group.rows.map((row) => (
+                    <button className="coverage-row" key={row.skill.id} type="button" onClick={() => onSelectSkill(row.skill.id)}>
+                      <span className="coverage-skill">
+                        <SkillIcon skill={row.skill} compact />
+                        <span>
+                          <strong>{row.skill.name}</strong>
+                          <small>{row.action}</small>
+                        </span>
                       </span>
-                    </td>
-                    {heatSkills.map((skill) => (
-                      <td key={skill.id}>
-                        <button
-                          className={`level-cell level-${member.skills[skill.id] || 0}`}
-                          type="button"
-                          onClick={() => onSelectSkill(skill.id)}
-                          aria-label={`${member.name} ${skill.name} level ${member.skills[skill.id] || 0}`}
-                        >
-                          {member.skills[skill.id] || 0}
-                        </button>
-                      </td>
-                    ))}
-                    <td><span className="level-cell level-0">0</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="heat-mobile-list">
-              {heatMembers.map((member) => (
-                <article key={member.id} className="heat-mobile-card">
-                  <div>
-                    <MemberAvatar member={member} />
-                    <span>
-                      <strong>{member.name}</strong>
-                      {member.handle && <small>{member.handle}</small>}
-                    </span>
-                  </div>
-                  <div>
-                    {heatSkills.map((skill) => (
-                      <button key={skill.id} type="button" onClick={() => onSelectSkill(skill.id)}>
-                        <span><SkillIcon skill={skill} compact /> {skill.name}</span>
-                        <b className={`level-${member.skills[skill.id] || 0}`}>{member.skills[skill.id] || 0}</b>
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </div>
-            {heatMembers.length === 0 && (
-              <div className="heat-empty">
-                <strong>Chưa tìm thấy thành viên phù hợp</strong>
-                <span>Thử tìm theo “Docker”, “React”, “Nam” hoặc “Hà My”.</span>
-              </div>
-            )}
+                      <span className={`coverage-status coverage-status--${row.status}`}>{coverageStatusLabel(row.status)}</span>
+                      <span className="coverage-owner">
+                        {row.primary ? <MemberAvatar member={row.primary} /> : <i aria-hidden="true">?</i>}
+                        <span>
+                          <small>Primary</small>
+                          <strong>{row.primary?.name || 'Chưa có'}</strong>
+                        </span>
+                      </span>
+                      <span className="coverage-metric">
+                        <small>Backup</small>
+                        <strong>{row.backups.length}</strong>
+                      </span>
+                      <span className="coverage-metric">
+                        <small>Trainee</small>
+                        <strong>{row.trainees.length}</strong>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
-          {searchText && (
-            <div className="search-hint">
-              Đang lọc theo <strong>{searchText}</strong>. Bảng chỉ hiển thị người có kỹ năng hoặc tên khớp.
+
+          {coverage.visibleRowCount === 0 && (
+            <div className="heat-empty">
+              <strong>Chưa tìm thấy coverage phù hợp</strong>
+              <span>Thử tìm theo kỹ năng, nhóm kỹ năng hoặc tên thành viên.</span>
             </div>
           )}
-          <div className="legend">
-            {LEVEL_BADGES.map((label, index) => (
-              <span key={label}><i className={`level-${index}`} />{label}</span>
-            ))}
-            <b>?</b>
+          {searchText && (
+            <div className="search-hint">
+              Đang lọc theo <strong>{searchText}</strong>. Board chỉ hiển thị kỹ năng, nhóm hoặc thành viên khớp.
+            </div>
+          )}
+          <div className="coverage-legend">
+            <span><i className="status-missing" />Missing</span>
+            <span><i className="status-thin" />Thin</span>
+            <span><i className="status-growing" />Growing</span>
+            <span><i className="status-healthy" />Healthy</span>
           </div>
         </section>
 
         <button className="gap-banner" type="button" onClick={onReport} data-gsap="image-reveal">
           <span aria-hidden="true">Gap</span>
           <span>
-            <strong>Kỹ năng cần bổ sung</strong>
-            <small>Một số kỹ năng chưa có người ở mức Mentor hoặc Thành thạo.</small>
+            <strong>Hành động ưu tiên</strong>
+            <small>{teamCoverage.actions.length ? `${teamCoverage.actions.length} điểm coverage cần xử lý.` : 'Team chưa có coverage risk nổi bật.'}</small>
           </span>
           <b>Xem chi tiết →</b>
         </button>
@@ -698,14 +675,22 @@ function Overview({
             <p>Mỗi ô level biến thành tín hiệu cho staffing, mentoring và kế hoạch học tập tiếp theo.</p>
           </div>
           <div className="motion-stack">
-            {heatSkills.slice(0, 3).map((skill, index) => (
-              <article key={skill.id} data-gsap="image-reveal">
-                <div className="motion-image" data-skill-state={skill.risk ? 'risk' : 'stable'} aria-hidden="true" />
+            {teamCoverage.actions.slice(0, 3).map((row, index) => (
+              <article key={row.skill.id} data-gsap="image-reveal">
+                <div className="motion-image" data-skill-state={row.status === 'healthy' ? 'stable' : 'risk'} aria-hidden="true" />
                 <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{skill.name}</strong>
-                <small>{skill.risk ? 'Cần thêm mentor hoặc người làm chính.' : 'Đang có tín hiệu năng lực ổn định.'}</small>
+                <strong>{row.skill.name}</strong>
+                <small>{row.action}</small>
               </article>
             ))}
+            {teamCoverage.actions.length === 0 && (
+              <article data-gsap="image-reveal">
+                <div className="motion-image" data-skill-state="stable" aria-hidden="true" />
+                <span>01</span>
+                <strong>Coverage ổn định</strong>
+                <small>Chưa có hành động ưu tiên trong dữ liệu hiện tại.</small>
+              </article>
+            )}
           </div>
         </section>
 
@@ -1443,6 +1428,13 @@ function normalizeText(value) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd');
+}
+
+function coverageStatusLabel(status) {
+  if (status === 'missing') return 'Missing';
+  if (status === 'thin') return 'Thin';
+  if (status === 'growing') return 'Growing';
+  return 'Healthy';
 }
 
 function uniqueBy(items, keyFn) {
