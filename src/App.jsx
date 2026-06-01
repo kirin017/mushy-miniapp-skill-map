@@ -19,6 +19,7 @@ import {
   rejectPendingSkill,
   saveProfileSkill,
 } from './lib/app/skill-map-data.js';
+import { deriveTeamCoverage } from './lib/app/team-coverage.js';
 import {
   ROLE_PRESETS,
   buildCatalogPayload,
@@ -69,6 +70,7 @@ function SkillMapApp({ ctx }) {
   const skills = view.skills.length ? view.skills : INITIAL_SKILLS;
   const members = view.members;
   const profileSkills = view.profileSkills;
+  const teamCoverage = useMemo(() => deriveTeamCoverage({ skills, members }), [skills, members]);
 
   useGSAP(() => {
     const root = shellRef.current;
@@ -315,6 +317,7 @@ function SkillMapApp({ ctx }) {
           onReport={() => setTab('report')}
           onProfile={() => setTab('profile')}
           profileSkills={profileSkills}
+          teamCoverage={teamCoverage}
           isWorkspaceAdmin={isWorkspaceAdmin}
           saving={saving}
           onApprovePendingSkill={handleApprovePendingSkill}
@@ -356,7 +359,7 @@ function SkillMapApp({ ctx }) {
           onBack={() => setTab('overview')}
         />
       )}
-      {tab === 'report' && <ReportScreen skills={skills} onBack={() => setTab('overview')} />}
+      {tab === 'report' && <ReportScreen teamCoverage={teamCoverage} onBack={() => setTab('overview')} />}
 
       <ShareManageModal open={shareOpen} onClose={() => setShareOpen(false)} />
       <BottomNav active={tab} onChange={setTab} />
@@ -429,6 +432,7 @@ function Overview({
   onSelectSkill,
   selectedSkill,
   profileSkills,
+  teamCoverage,
   isWorkspaceAdmin,
   saving,
   onApprovePendingSkill,
@@ -1376,9 +1380,9 @@ function resolveProfileSkill(profileSkill, skillMap) {
   };
 }
 
-function ReportScreen({ skills, onBack }) {
+function ReportScreen({ teamCoverage, onBack }) {
   const [fullOpen, setFullOpen] = useState(false);
-  const risks = skills.filter((skill) => skill.risk);
+  const risks = teamCoverage.actions;
   return (
     <div className="screen compact-screen">
       <TopBar title="Kỹ năng cần bổ sung" onBack={onBack} />
