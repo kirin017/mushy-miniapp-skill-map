@@ -97,3 +97,15 @@ test('Find tab compact layout prevents chip rows from widening the viewport', ()
   assert.match(source, /\.skill-chip-row,\s*\n\.skill-picker\s*\{[^}]*min-width:\s*0;/s);
   assert.match(source, /\.primary-wide\s*\{[^}]*white-space:\s*normal;/s);
 });
+
+test('ReportScreen renders coverage actions instead of fake risk percentages', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const reportScreenStart = source.indexOf('function ReportScreen');
+  const topBarStart = source.indexOf('function TopBar');
+  const reportSource = source.slice(reportScreenStart, topBarStart);
+
+  assert.match(reportSource, /Hành động ưu tiên/);
+  assert.match(reportSource, /teamCoverage\.actions/);
+  assert.match(reportSource, /Primary:/);
+  assert.doesNotMatch(reportSource, /skill\.total \* 14/);
+});

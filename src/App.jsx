@@ -1368,38 +1368,56 @@ function resolveProfileSkill(profileSkill, skillMap) {
 
 function ReportScreen({ teamCoverage, onBack }) {
   const [fullOpen, setFullOpen] = useState(false);
-  const risks = teamCoverage.actions.map((row) => ({
-    ...row.skill,
-    total: row.primary ? 1 + row.backups.length : 0,
-  }));
+  const critical = teamCoverage.actions.filter((row) => row.status === 'missing');
+  const thin = teamCoverage.actions.filter((row) => row.status === 'thin');
+  const growth = teamCoverage.actions.filter((row) => row.status === 'growing');
+  const groups = [
+    { id: 'critical', title: 'Critical', rows: critical },
+    { id: 'thin', title: 'Thin coverage', rows: thin },
+    { id: 'growth', title: 'Growth opportunity', rows: growth },
+  ].filter((group) => group.rows.length > 0);
+
   return (
     <div className="screen compact-screen">
-      <TopBar title="Kỹ năng cần bổ sung" onBack={onBack} />
-      <div className="warning-box">Các kỹ năng còn ít người ở mức Thành thạo hoặc Mentor</div>
-      <div className="risk-list">
-        {risks.map((skill) => (
-          <article className="risk-card" key={skill.id}>
-            <SkillIcon skill={skill} />
-            <div>
-              <strong>{skill.name}</strong>
-              <small>{skill.total > 0 ? `${skill.total} người ở mức 3-4` : '0 người ở mức 3-4'}</small>
-              <i style={{ '--fill': `${skill.total * 14}%` }} />
-            </div>
-            <b>{skill.total * 14}%</b>
-            <em>›</em>
-          </article>
+      <TopBar title="Hành động ưu tiên" onBack={onBack} />
+      <div className="warning-box">Danh sách này dựa trên primary owner, backup và trainee hiện có trong team.</div>
+
+      <div className="risk-list action-report-list">
+        {groups.map((group) => (
+          <section className="action-report-group" key={group.id}>
+            <header>
+              <strong>{group.title}</strong>
+              <small>{group.rows.length} hành động</small>
+            </header>
+            {group.rows.map((row) => (
+              <article className="risk-card action-card" key={row.skill.id}>
+                <SkillIcon skill={row.skill} />
+                <div>
+                  <strong>{row.skill.name}</strong>
+                  <small>{row.category} · {row.action}</small>
+                  <span>
+                    Primary: {row.primary?.name || 'Chưa có'} · Backup: {row.backups.length} · Trainee: {row.trainees.length}
+                  </span>
+                </div>
+                <b className={`coverage-status coverage-status--${row.status}`}>{coverageStatusLabel(row.status)}</b>
+                <em>›</em>
+              </article>
+            ))}
+          </section>
         ))}
       </div>
-      {risks.length === 0 && (
+
+      {teamCoverage.actions.length === 0 && (
         <section className="empty-panel">
-          <strong>Chưa phát hiện khoảng trống kỹ năng</strong>
-          <p>Team hiện có đủ tín hiệu mentor/thành thạo trên các kỹ năng đang theo dõi.</p>
+          <strong>Chưa có hành động coverage ưu tiên</strong>
+          <p>Team hiện có primary và backup đủ tốt cho các kỹ năng đang theo dõi.</p>
         </section>
       )}
+
       {fullOpen && (
         <section className="full-report" aria-live="polite">
           <strong>Tóm tắt báo cáo</strong>
-          <p>Ưu tiên bổ sung mentor cho Testing và Security, sau đó nâng DevOps/PostgreSQL từ mức cơ bản lên thành thạo.</p>
+          <p>{buildCoverageReportSummary(teamCoverage)}</p>
         </section>
       )}
       <button className="add-more" type="button" onClick={() => setFullOpen((open) => !open)}>
@@ -1436,6 +1454,16 @@ function coverageStatusLabel(status) {
   if (status === 'thin') return 'Thin';
   if (status === 'growing') return 'Growing';
   return 'Healthy';
+}
+
+function buildCoverageReportSummary(teamCoverage) {
+  const missing = teamCoverage.statusCounts.missing;
+  const thin = teamCoverage.statusCounts.thin;
+  const growing = teamCoverage.statusCounts.growing;
+  if (missing + thin + growing === 0) {
+    return 'Không có khoảng trống coverage nổi bật trong dữ liệu hiện tại.';
+  }
+  return `Ưu tiên xử lý ${missing} kỹ năng thiếu primary, ${thin} kỹ năng thiếu backup, và ${growing} kỹ năng có trainee cần được dẫn dắt.`;
 }
 
 function uniqueBy(items, keyFn) {
