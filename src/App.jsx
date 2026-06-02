@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import './App.css';
 import ScopeSwitcher from './components/ScopeSwitcher.jsx';
 import ShareManageModal from './components/ShareManageModal.jsx';
@@ -37,7 +36,7 @@ const LEVEL_LABELS = ['Học', 'Cơ bản', 'Làm được', 'Thành thạo', 'M
 const INITIAL_SKILLS = PRESET_SKILLS.map((skill) => ({ ...skill, skillId: null, total: 0, risk: 1 }));
 const EMPTY_VIEW = { skills: INITIAL_SKILLS, members: [], profileSkills: [] };
 
-gsap.registerPlugin(useGSAP, ScrollTrigger);
+gsap.registerPlugin(useGSAP);
 
 export default function App() {
   const [ctxResult] = useState(() => {
@@ -90,36 +89,7 @@ function SkillMapApp({ ctx }) {
         stagger: 0.08,
       });
 
-      gsap.utils.toArray('[data-gsap="image-reveal"]').forEach((element) => {
-        gsap.fromTo(
-          element,
-          { scale: 0.88, opacity: 0.45, filter: 'contrast(0.85) brightness(0.8)' },
-          {
-            scale: 1,
-            opacity: 1,
-            filter: 'contrast(1.08) brightness(1)',
-            ease: 'none',
-            scrollTrigger: {
-              trigger: element,
-              start: 'top 86%',
-              end: 'bottom 22%',
-              scrub: true,
-            },
-          },
-        );
-      });
-
-      const desire = root.querySelector('[data-gsap="desire"]');
-      const pinTitle = root.querySelector('[data-gsap="pin-title"]');
-      if (desire && pinTitle && window.matchMedia('(min-width: 900px)').matches) {
-        ScrollTrigger.create({
-          trigger: desire,
-          start: 'top 92px',
-          end: 'bottom bottom',
-          pin: pinTitle,
-          pinSpacing: false,
-        });
-      }
+      gsap.set('[data-gsap="image-reveal"]', { opacity: 1, scale: 1, filter: 'none' });
     });
 
     return () => motion.revert();
