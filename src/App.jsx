@@ -1406,6 +1406,8 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
 
   const reloadSessions = useCallback(async () => {
     setLoadingHistory(true);
+    setLatestPlan(null);
+    setSessions([]);
     try {
       const rows = await listCoachSessions({
         supabase: db,
