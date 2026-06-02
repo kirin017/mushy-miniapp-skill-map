@@ -67,6 +67,13 @@ test('parseCoachLevelPlanText throws invalid_json for malformed text', () => {
   );
 });
 
+test('parseCoachLevelPlanText throws invalid_json for malformed fenced JSON', () => {
+  assert.throws(
+    () => parseCoachLevelPlanText('```json\n{"summary":"Plan","items":[}\n```'),
+    (error) => error.code === 'invalid_json',
+  );
+});
+
 test('validateCoachLevelPlanPayload drops unknown skill ids and duplicates, validates current levels, and returns summary plus valid items', () => {
   const validated = validateCoachLevelPlanPayload({
     profileSkills,
@@ -90,6 +97,32 @@ test('validateCoachLevelPlanPayload drops unknown skill ids and duplicates, vali
       { skill_id: 'sql', current_level: 3, target_level: 4, reason: 'Improve reporting', next_step: 'Tune a query' },
     ],
   });
+});
+
+test('validateCoachLevelPlanPayload drops AI items with invalid submitted levels without normalizing them', () => {
+  const validated = validateCoachLevelPlanPayload({
+    profileSkills: [
+      { id: 'react', level: 2 },
+      { id: 'node', level: 1 },
+      { id: 'sql', level: 3 },
+      { id: 'css', level: 0 },
+      { id: 'testing', level: 1 },
+    ],
+    payload: {
+      summary: 'Strict levels only',
+      items: [
+        { skill_id: 'react', current_level: 2, target_level: 99, reason: 'Would clamp to 4', next_step: 'Skip' },
+        { skill_id: 'node', current_level: 1, target_level: '3abc', reason: 'Would parse to 3', next_step: 'Skip' },
+        { skill_id: 'sql', target_level: 4, reason: 'Missing current level', next_step: 'Skip' },
+        { skill_id: 'css', current_level: '0abc', target_level: 1, reason: 'Malformed current level', next_step: 'Skip' },
+        { skill_id: 'testing', current_level: 1, target_level: 2, reason: 'Valid item', next_step: 'Keep this' },
+      ],
+    },
+  });
+
+  assert.deepEqual(validated.items, [
+    { skill_id: 'testing', current_level: 1, target_level: 2, reason: 'Valid item', next_step: 'Keep this' },
+  ]);
 });
 
 test('validateCoachLevelPlanPayload rejects plans with no usable items', () => {

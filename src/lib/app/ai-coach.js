@@ -54,8 +54,9 @@ export function validateCoachLevelPlanPayload({
     const profileSkill = profileById.get(skillId);
     if (!profileSkill) continue;
 
-    const currentLevel = clampInteger(item?.current_level, 0, MAX_SKILL_LEVEL, 0);
-    const targetLevel = clampInteger(item?.target_level, 0, MAX_SKILL_LEVEL, 0);
+    const currentLevel = parseStrictInteger(item?.current_level);
+    const targetLevel = parseStrictInteger(item?.target_level);
+    if (currentLevel === null || targetLevel === null) continue;
     if (currentLevel !== profileSkill.level) continue;
     if (targetLevel <= currentLevel || targetLevel > MAX_SKILL_LEVEL) continue;
 
@@ -162,4 +163,15 @@ function clampInteger(value, min, max, fallback) {
   const n = Number.parseInt(value, 10);
   if (Number.isNaN(n)) return fallback;
   return Math.max(min, Math.min(max, n));
+}
+
+function parseStrictInteger(value) {
+  if (Number.isInteger(value)) return value;
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  if (!/^-?\d+$/.test(trimmed)) return null;
+
+  const n = Number(trimmed);
+  return Number.isSafeInteger(n) ? n : null;
 }
