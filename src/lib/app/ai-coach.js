@@ -167,11 +167,5 @@ function clampInteger(value, min, max, fallback) {
 
 function parseStrictInteger(value) {
   if (Number.isInteger(value)) return value;
-  if (typeof value !== 'string') return null;
-
-  const trimmed = value.trim();
-  if (!/^-?\d+$/.test(trimmed)) return null;
-
-  const n = Number(trimmed);
-  return Number.isSafeInteger(n) ? n : null;
+  return null;
 }

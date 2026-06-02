@@ -125,6 +125,25 @@ test('validateCoachLevelPlanPayload drops AI items with invalid submitted levels
   ]);
 });
 
+test('validateCoachLevelPlanPayload rejects string AI levels without normalizing them', () => {
+  assert.throws(
+    () => validateCoachLevelPlanPayload({
+      profileSkills: [
+        { id: 'react', level: 2 },
+        { id: 'node', level: 1 },
+      ],
+      payload: {
+        summary: 'String levels are invalid AI output',
+        items: [
+          { skill_id: 'react', current_level: '2', target_level: 3, reason: 'String current level', next_step: 'Skip' },
+          { skill_id: 'node', current_level: 1, target_level: '3', reason: 'String target level', next_step: 'Skip' },
+        ],
+      },
+    }),
+    /coach_plan_empty/,
+  );
+});
+
 test('validateCoachLevelPlanPayload rejects plans with no usable items', () => {
   assert.throws(
     () => validateCoachLevelPlanPayload({
