@@ -1401,6 +1401,9 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
   const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const historyRequestRef = useRef(0);
+  const coachRequestRef = useRef(0);
+  const coachScopeRef = useRef({ workspaceId: activeScope.workspaceId, userId: ctx.userId });
+  coachScopeRef.current = { workspaceId: activeScope.workspaceId, userId: ctx.userId };
   const skillMap = useMemo(() => new Map(skillCatalog.map((skill) => [skill.id, skill])), [skillCatalog]);
   const hasProfileSkills = profileSkills.length > 0;
   const canGenerate = hasProfileSkills && goalText.trim() && !generating;
@@ -1431,10 +1434,20 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
   }, [activeScope.workspaceId, ctx.userId]);
 
   useEffect(() => {
+    coachRequestRef.current += 1;
+    setGenerating(false);
     reloadSessions();
   }, [reloadSessions]);
 
   async function generatePlan() {
+    const requestId = coachRequestRef.current + 1;
+    coachRequestRef.current = requestId;
+    const requestScope = { workspaceId: activeScope.workspaceId, userId: ctx.userId };
+    const isCurrentRequest = () => (
+      requestId === coachRequestRef.current
+      && coachScopeRef.current.workspaceId === requestScope.workspaceId
+      && coachScopeRef.current.userId === requestScope.userId
+    );
     const request = buildCoachLevelPlanRequest({
       goalText,
       profileSkills,
@@ -1452,43 +1465,50 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${ctx.token}`,
-          'X-Workspace-Id': activeScope.workspaceId,
+          'X-Workspace-Id': requestScope.workspaceId,
           'X-Home-Workspace-Id': ctx.workspaceId,
         },
         body: JSON.stringify(request),
       });
       const json = await response.json().catch(() => ({}));
+      if (!isCurrentRequest()) return;
       if (!response.ok) {
         throw new Error(json.error || `coach failed: ${response.status}`);
       }
 
       const transientPlan = {
         id: `local-${Date.now()}`,
-        workspace_id: activeScope.workspaceId,
-        user_id: ctx.userId,
+        workspace_id: requestScope.workspaceId,
+        user_id: requestScope.userId,
         goal_text: request.goalText,
         summary: json.summary,
         items: json.items || [],
         created_at: new Date().toISOString(),
       };
+      if (!isCurrentRequest()) return;
       setLatestPlan(transientPlan);
 
       try {
         const saved = await saveCoachSession({
           supabase: db,
-          workspaceId: activeScope.workspaceId,
-          userId: ctx.userId,
+          workspaceId: requestScope.workspaceId,
+          userId: requestScope.userId,
           goalText: request.goalText,
           plan: json,
         });
+        if (!isCurrentRequest()) return;
         setLatestPlan(saved);
+        if (!isCurrentRequest()) return;
         await reloadSessions();
       } catch (sessionError) {
+        if (!isCurrentRequest()) return;
         setSaveError(sessionError);
       }
     } catch (coachError) {
+      if (!isCurrentRequest()) return;
       setError(coachError);
     } finally {
+      if (!isCurrentRequest()) return;
       setGenerating(false);
     }
   }
