@@ -60,8 +60,6 @@ function SkillMapApp({ ctx }) {
   const activeScope = useActiveScope();
   const isWorkspaceAdmin = useIsCurrentWorkspaceAdmin(activeScope.workspaceId);
   const [tab, setTab] = useState('overview');
-  const [query, setQuery] = useState('');
-  const [selectedSkill, setSelectedSkill] = useState('docker');
   const [view, setView] = useState(EMPTY_VIEW);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -93,7 +91,7 @@ function SkillMapApp({ ctx }) {
     });
 
     return () => motion.revert();
-  }, { scope: shellRef, dependencies: [tab, loading, selectedSkill] });
+  }, { scope: shellRef, dependencies: [tab, loading] });
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -108,38 +106,16 @@ function SkillMapApp({ ctx }) {
         contextMemberProfiles,
       });
       setView(next);
-      if (next.skills.length && !next.skills.some((skill) => skill.id === selectedSkill)) {
-        setSelectedSkill(next.skills[0].id);
-        setQuery(next.skills[0].name);
-      }
     } catch (error) {
       setLoadError(error);
     } finally {
       setLoading(false);
     }
-  }, [activeScope.workspaceId, ctx.userId, currentUserProfile, contextMemberProfiles, selectedSkill]);
+  }, [activeScope.workspaceId, ctx.userId, currentUserProfile, contextMemberProfiles]);
 
   useEffect(() => {
     reload();
   }, [reload]);
-
-  const selected = skills.find((skill) => skill.id === selectedSkill) || skills[0] || INITIAL_SKILLS[0];
-  const searchRows = useMemo(() => {
-    const q = normalizeText(query.trim());
-    return members
-      .map((member) => ({
-        ...member,
-        level: member.skills[selectedSkill] ?? 0,
-        interest: Math.max(1, Math.min(3, (member.skills[selectedSkill] ?? 0) - 1)),
-      }))
-      .filter((member) => {
-        if (!q) return member.level > 0;
-        return normalizeText(member.name).includes(q)
-          || normalizeText(member.handle).includes(q)
-          || normalizeText(selected.name).includes(q);
-      })
-      .sort((a, b) => b.level - a.level || b.interest - a.interest);
-  }, [members, query, selected.name, selectedSkill]);
 
   async function handleSaveProfileSkill(draft) {
     const hasMemberSkillRows = !!(draft.memberSkillId || draft.memberSkillIds?.length);
@@ -287,7 +263,6 @@ function SkillMapApp({ ctx }) {
           skills={skills}
           members={members}
           currentMember={members.find((member) => member.userId === ctx.userId)}
-          onSearch={() => setTab('search')}
           onReport={() => setTab('report')}
           onProfile={() => setTab('profile')}
           onCoach={() => setTab('coach')}
@@ -298,26 +273,6 @@ function SkillMapApp({ ctx }) {
           onApprovePendingSkill={handleApprovePendingSkill}
           onMergePendingSkill={handleMergePendingSkill}
           onRejectPendingSkill={handleRejectPendingSkill}
-          selectedSkill={selectedSkill}
-          onSelectSkill={(skillId) => {
-            setSelectedSkill(skillId);
-            setQuery(skills.find((skill) => skill.id === skillId)?.name || '');
-            setTab('search');
-          }}
-        />
-      )}
-
-      {tab === 'search' && (
-        <SearchScreen
-          skills={skills}
-          query={query}
-          setQuery={setQuery}
-          selected={selected}
-          selectedSkill={selectedSkill}
-          setSelectedSkill={setSelectedSkill}
-          rows={searchRows}
-          onBack={() => setTab('overview')}
-          onShowHeatmap={() => setTab('overview')}
         />
       )}
 
@@ -411,12 +366,9 @@ function Overview({
   skills,
   members,
   currentMember,
-  onSearch,
   onReport,
   onProfile,
   onCoach,
-  onSelectSkill,
-  selectedSkill,
   profileSkills,
   teamCoverage,
   isWorkspaceAdmin,
@@ -451,7 +403,6 @@ function Overview({
     priorityCount: teamCoverage.actions.length,
     profileSkillCount: profileSummary.skillCount,
     learningCount: profileSummary.learningCount,
-    memberCount: members.length,
   });
   const pendingSkills = uniqueBy(
     members.flatMap((member) => (
@@ -459,6 +410,11 @@ function Overview({
     ).map((skill) => ({ ...skill, memberName: member.name }))),
     (skill) => skill.skillId,
   );
+  function focusCoverageSkill(skill) {
+    setOverviewSearch(skill.name);
+    setCoverageMode('grouped');
+    setFilterOpen(false);
+  }
 
   return (
     <div className="screen screen--overview">
@@ -511,11 +467,11 @@ function Overview({
               <small>Xem owner, backup và trainee</small>
             </span>
           </button>
-          <button className="quick-card" type="button" onClick={onSearch}>
-            <span className="quick-people" aria-hidden="true">2x</span>
+          <button className="quick-card" type="button" onClick={onProfile}>
+            <span className="quick-people" aria-hidden="true">{profileSummary.skillCount}</span>
             <span>
-              <strong>Tìm theo kỹ năng</strong>
-              <small>Tìm người phù hợp</small>
+              <strong>Cập nhật hồ sơ</strong>
+              <small>Giữ level và quan tâm chính xác</small>
             </span>
           </button>
           <button className="quick-card" type="button" onClick={onCoach}>
@@ -540,11 +496,9 @@ function Overview({
             {workflowItems.map((item) => {
               const handleClick = item.target === 'report'
                 ? onReport
-                : item.target === 'search'
-                  ? onSearch
-                  : item.target === 'profile'
-                    ? onProfile
-                    : onCoach;
+                : item.target === 'profile'
+                  ? onProfile
+                  : onCoach;
               return (
                 <button key={item.target} className="workflow-card" type="button" onClick={handleClick}>
                   <span>{item.step}</span>
@@ -622,7 +576,7 @@ function Overview({
 
                 <div className="coverage-rows">
                   {group.rows.map((row) => (
-                    <button className="coverage-row" key={row.skill.id} type="button" onClick={() => onSelectSkill(row.skill.id)}>
+                    <button className="coverage-row" key={row.skill.id} type="button" onClick={() => focusCoverageSkill(row.skill)}>
                       <span className="coverage-skill">
                         <SkillIcon skill={row.skill} compact />
                         <span>
@@ -682,7 +636,7 @@ function Overview({
           </div>
           <div className="priority-grid">
             {priorityActions.map((row) => (
-              <button key={row.skill.id} className="priority-card" type="button" onClick={() => onSelectSkill(row.skill.id)}>
+              <button key={row.skill.id} className="priority-card" type="button" onClick={() => focusCoverageSkill(row.skill)}>
                 <SkillIcon skill={row.skill} />
                 <span>
                   <strong>{row.skill.name}</strong>
@@ -763,105 +717,6 @@ function PendingSkillReview({ pendingSkills, approvedSkills, saving, onApprove, 
         ))}
       </div>
     </section>
-  );
-}
-
-function SearchScreen({ skills, query, setQuery, selected, selectedSkill, setSelectedSkill, rows, onBack, onShowHeatmap }) {
-  const [selectedMemberId, setSelectedMemberId] = useState(null);
-  const selectedMember = rows.find((member) => member.id === selectedMemberId) || null;
-
-  return (
-    <div className="screen compact-screen">
-      <TopBar title="Tìm theo kỹ năng" onBack={onBack} />
-      <label className="inline-search">
-        ⌕
-        <input aria-label="Tìm kỹ năng hoặc thành viên" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <button type="button" aria-label="Xóa tìm kiếm" onClick={() => setQuery('')}>×</button>
-      </label>
-
-      <div className="result-head">
-        <strong>Kết quả ({rows.length})</strong>
-        <div className="skill-chip-row" role="listbox" aria-label="Chọn kỹ năng">
-          {skills.slice(0, 5).map((skill) => (
-            <button
-              key={skill.id}
-              type="button"
-              className={selectedSkill === skill.id ? 'active' : ''}
-              onClick={() => {
-                setSelectedSkill(skill.id);
-                setQuery(skill.name);
-                setSelectedMemberId(null);
-              }}
-            >
-              <SkillIcon skill={skill} compact />
-              {skill.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <section className="skill-detail-card">
-        <SkillIcon skill={selected} className="skill-big" />
-        <div>
-          <h2>{selected.name}</h2>
-          <p>{rows.length} thành viên có kỹ năng này</p>
-        </div>
-        <div className="level-summary">
-          {[4, 3, 2, 1].map((level) => (
-            <span key={level}>
-              <b>Lv.{level}</b>
-              <small>{LEVEL_LABELS[level]}</small>
-              <strong>{rows.filter((row) => row.level === level).length}</strong>
-            </span>
-          ))}
-        </div>
-        <button className="primary-wide" type="button" onClick={onShowHeatmap}>Xem Team Coverage với {selected.name}</button>
-      </section>
-
-      {selectedMember && (
-        <section className="member-detail-card" aria-live="polite">
-          <button type="button" aria-label="Đóng chi tiết thành viên" data-tooltip="Đóng" onClick={() => setSelectedMemberId(null)}>Close</button>
-          <MemberAvatar member={selectedMember} />
-          <div>
-            <strong>{selectedMember.name}</strong>
-            {selectedMember.handle && <small>{selectedMember.handle}</small>}
-            <p>{selected.name}: Level {selectedMember.level} · {LEVEL_LABELS[selectedMember.level]} · Quan tâm {selectedMember.interest}</p>
-          </div>
-        </section>
-      )}
-
-      <div className="member-list">
-        {rows.map((member) => (
-          <MemberResult
-            member={member}
-            key={member.id}
-            active={selectedMemberId === member.id}
-            onSelect={() => setSelectedMemberId((current) => (current === member.id ? null : member.id))}
-          />
-        ))}
-      </div>
-      {rows.length === 0 && (
-        <section className="empty-panel">
-          <strong>Không có thành viên phù hợp</strong>
-          <p>Thử chọn kỹ năng khác hoặc xóa nội dung tìm kiếm hiện tại.</p>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function MemberResult({ member, active, onSelect }) {
-  return (
-    <button className={`member-result${active ? ' active' : ''}`} type="button" onClick={onSelect} aria-expanded={active}>
-      <MemberAvatar member={member} />
-      <span>
-        <strong>{member.name}</strong>
-        {member.handle && <small>{member.handle}</small>}
-        <em className={`level-text level-text-${member.level}`}>Level {member.level} · {LEVEL_LABELS[member.level]}</em>
-      </span>
-      <b>Quan tâm {member.interest}</b>
-      <i>›</i>
-    </button>
   );
 }
 
@@ -1632,7 +1487,7 @@ function buildCoverageReportSummary(teamCoverage) {
   return `Ưu tiên xử lý ${missing} kỹ năng thiếu primary, ${thin} kỹ năng thiếu backup, và ${growing} kỹ năng có trainee cần được dẫn dắt.`;
 }
 
-function buildWorkflowItems({ priorityCount, profileSkillCount, learningCount, memberCount }) {
+function buildWorkflowItems({ priorityCount, profileSkillCount, learningCount }) {
   return [
     {
       target: 'report',
@@ -1641,20 +1496,14 @@ function buildWorkflowItems({ priorityCount, profileSkillCount, learningCount, m
       detail: priorityCount ? 'Xử lý owner, backup, mentor' : 'Theo dõi khi team đổi kỹ năng',
     },
     {
-      target: 'search',
-      step: '02',
-      title: `${memberCount} thành viên`,
-      detail: 'Tìm người theo kỹ năng đang cần',
-    },
-    {
       target: 'profile',
-      step: '03',
+      step: '02',
       title: `${profileSkillCount} kỹ năng cá nhân`,
       detail: learningCount ? `${learningCount} kỹ năng đang học` : 'Cập nhật level và quan tâm',
     },
     {
       target: 'coach',
-      step: '04',
+      step: '03',
       title: 'AI Coach',
       detail: profileSkillCount ? 'Tạo kế hoạch nâng level' : 'Cần hồ sơ kỹ năng trước',
     },
@@ -1674,7 +1523,6 @@ function uniqueBy(items, keyFn) {
 function BottomNav({ active, onChange }) {
   const items = [
     ['overview', 'Map', 'Tổng quan'],
-    ['search', 'Find', 'Tìm kiếm'],
     ['profile', 'Profile', 'Cá nhân'],
     ['coach', 'Coach', 'Coach'],
     ['report', 'Action', 'Ưu tiên'],

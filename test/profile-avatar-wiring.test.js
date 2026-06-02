@@ -100,17 +100,25 @@ test('Overview uses a data-driven workflow rail instead of decorative feature su
   assert.match(overviewSource, /className="workflow-card"/);
   assert.match(source, /function buildWorkflowItems/);
   assert.match(source, /\['coach', 'Coach', 'Coach'\]/);
+  assert.doesNotMatch(source, /\['search', 'Find', 'Tìm kiếm'\]/);
   assert.doesNotMatch(overviewSource, /motion-lab/);
   assert.doesNotMatch(source, /DevOps, Testing, Security/);
 });
 
-test('Find tab compact layout prevents chip rows from widening the viewport', () => {
-  const source = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
+test('Search tab is removed while overview coverage filtering remains', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const overviewStart = source.indexOf('function Overview');
+  const pendingReviewStart = source.indexOf('function PendingSkillReview');
+  const overviewSource = source.slice(overviewStart, pendingReviewStart);
 
-  assert.match(source, /\.compact-screen\s*\{[^}]*min-width:\s*0;/s);
-  assert.match(source, /\.compact-screen\s*>\s*\*\s*\{[^}]*max-width:\s*100%;/s);
-  assert.match(source, /\.skill-chip-row,\s*\n\.skill-picker\s*\{[^}]*min-width:\s*0;/s);
-  assert.match(source, /\.primary-wide\s*\{[^}]*white-space:\s*normal;/s);
+  assert.doesNotMatch(source, /function SearchScreen/);
+  assert.doesNotMatch(source, /function MemberResult/);
+  assert.doesNotMatch(source, /tab === 'search'/);
+  assert.doesNotMatch(source, /setTab\('search'\)/);
+  assert.doesNotMatch(source, /Tìm theo kỹ năng/);
+  assert.doesNotMatch(source, /Tìm kiếm/);
+  assert.match(overviewSource, /className="search-pill overview-search"/);
+  assert.match(overviewSource, /focusCoverageSkill/);
 });
 
 test('ReportScreen renders coverage actions instead of fake risk percentages', () => {
