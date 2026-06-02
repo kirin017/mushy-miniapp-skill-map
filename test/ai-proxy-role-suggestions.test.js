@@ -184,6 +184,22 @@ test('handleCoachLevelPlanRequest rejects empty personal skills before Gemini ca
   assert.equal(response.body.error, 'profile_skills_required');
 });
 
+test('handleCoachLevelPlanRequest rejects non-array personal skills before Gemini call', async () => {
+  let fetchCalls = 0;
+  const response = await handleCoachLevelPlanRequest({
+    body: { goalText: 'Reach level 3', profileSkills: {} },
+    apiKey: 'gemini-key',
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      throw new Error('fetch should not be called');
+    },
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error, 'profile_skills_required');
+  assert.equal(fetchCalls, 0);
+});
+
 test('handleCoachLevelPlanRequest returns invalid_ai_json for malformed Gemini text', async () => {
   const response = await handleCoachLevelPlanRequest({
     body: { goalText: 'Reach level 3', profileSkills: coachProfileSkills },

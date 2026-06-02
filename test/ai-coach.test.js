@@ -212,6 +212,17 @@ test('buildCoachLevelPlanRequest sends reduced personal skill fields only and om
   assert.equal(JSON.stringify(request).includes('skillId'), false);
 });
 
+test('buildCoachLevelPlanRequest treats non-array profile skills as empty', () => {
+  for (const malformedProfileSkills of [null, {}, 'react']) {
+    const request = buildCoachLevelPlanRequest({
+      goalText: 'Reach level 3',
+      profileSkills: malformedProfileSkills,
+    });
+
+    assert.deepEqual(request.profileSkills, []);
+  }
+});
+
 test('buildCoachSessionInsert creates a scoped insert row', () => {
   assert.deepEqual(
     buildCoachSessionInsert({

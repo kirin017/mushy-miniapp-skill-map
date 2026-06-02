@@ -14,10 +14,12 @@ export function buildCoachLevelPlanRequest({
   levelLabels = [],
   maxItems = DEFAULT_MAX_ITEMS,
 } = {}) {
+  const normalizedProfileSkills = Array.isArray(profileSkills) ? profileSkills : [];
+
   return {
     action: 'coach_level_plan',
     goalText: cleanText(goalText, MAX_GOAL_LENGTH),
-    profileSkills: profileSkills.map(reduceProfileSkill).filter((skill) => skill.skill_id),
+    profileSkills: normalizedProfileSkills.map(reduceProfileSkill).filter((skill) => skill.skill_id),
     levelLabels,
     maxItems: clampInteger(maxItems, 1, HARD_MAX_ITEMS, DEFAULT_MAX_ITEMS),
   };
