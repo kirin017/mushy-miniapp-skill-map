@@ -1400,11 +1400,14 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const historyRequestRef = useRef(0);
   const skillMap = useMemo(() => new Map(skillCatalog.map((skill) => [skill.id, skill])), [skillCatalog]);
   const hasProfileSkills = profileSkills.length > 0;
   const canGenerate = hasProfileSkills && goalText.trim() && !generating;
 
   const reloadSessions = useCallback(async () => {
+    const requestId = historyRequestRef.current + 1;
+    historyRequestRef.current = requestId;
     setLoadingHistory(true);
     setLatestPlan(null);
     setSessions([]);
@@ -1415,11 +1418,14 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
         userId: ctx.userId,
         limit: 10,
       });
+      if (requestId !== historyRequestRef.current) return;
       setSessions(rows);
       setLatestPlan(rows[0] || null);
     } catch (historyError) {
+      if (requestId !== historyRequestRef.current) return;
       setError(historyError);
     } finally {
+      if (requestId !== historyRequestRef.current) return;
       setLoadingHistory(false);
     }
   }, [activeScope.workspaceId, ctx.userId]);
