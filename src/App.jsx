@@ -26,6 +26,11 @@ import {
   filterSuggestedSkills,
   suggestRoleSkillsFallback,
 } from './lib/app/role-suggestions.js';
+import {
+  buildCoachLevelPlanRequest,
+  listCoachSessions,
+  saveCoachSession,
+} from './lib/app/ai-coach.js';
 import { STANDARD_SKILLS } from './lib/app/skill-catalog.js';
 
 const LEVEL_LABELS = ['Học', 'Cơ bản', 'Làm được', 'Thành thạo', 'Mentor'];
@@ -315,6 +320,7 @@ function SkillMapApp({ ctx }) {
           onSearch={() => setTab('search')}
           onReport={() => setTab('report')}
           onProfile={() => setTab('profile')}
+          onCoach={() => setTab('coach')}
           profileSkills={profileSkills}
           teamCoverage={teamCoverage}
           isWorkspaceAdmin={isWorkspaceAdmin}
@@ -356,6 +362,16 @@ function SkillMapApp({ ctx }) {
           saving={saving}
           currentMember={members.find((member) => member.userId === ctx.userId)}
           onBack={() => setTab('overview')}
+        />
+      )}
+      {tab === 'coach' && (
+        <CoachScreen
+          ctx={ctx}
+          activeScope={activeScope}
+          profileSkills={profileSkills}
+          skillCatalog={skills}
+          onBack={() => setTab('overview')}
+          onProfile={() => setTab('profile')}
         />
       )}
       {tab === 'report' && <ReportScreen teamCoverage={teamCoverage} onBack={() => setTab('overview')} />}
@@ -428,6 +444,7 @@ function Overview({
   onSearch,
   onReport,
   onProfile,
+  onCoach,
   onSelectSkill,
   selectedSkill,
   profileSkills,
@@ -523,6 +540,15 @@ function Overview({
             <span>
               <strong>Tìm theo kỹ năng</strong>
               <small>Tìm người phù hợp</small>
+            </span>
+          </button>
+          <button className="quick-card" type="button" onClick={onCoach}>
+            <span className="quick-icon coach-icon" aria-hidden="true">
+              <i /><i /><i />
+            </span>
+            <span>
+              <strong>AI Coach</strong>
+              <small>Lập kế hoạch nâng level</small>
             </span>
           </button>
         </div>
@@ -1364,6 +1390,208 @@ function resolveProfileSkill(profileSkill, skillMap) {
     iconUrl: null,
     iconAlt: `${profileSkill.name || profileSkill.id} icon`,
   };
+}
+
+function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, onProfile }) {
+  const [goalText, setGoalText] = useState('');
+  const [latestPlan, setLatestPlan] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  const skillMap = useMemo(() => new Map(skillCatalog.map((skill) => [skill.id, skill])), [skillCatalog]);
+  const hasProfileSkills = profileSkills.length > 0;
+  const canGenerate = hasProfileSkills && goalText.trim() && !generating;
+
+  const reloadSessions = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const rows = await listCoachSessions({
+        db,
+        workspaceId: activeScope.workspaceId,
+        userId: ctx.userId,
+        limit: 10,
+      });
+      setSessions(rows);
+      setLatestPlan((current) => current || rows[0] || null);
+    } catch (historyError) {
+      setError(historyError);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [activeScope.workspaceId, ctx.userId]);
+
+  useEffect(() => {
+    reloadSessions();
+  }, [reloadSessions]);
+
+  async function generatePlan() {
+    const request = buildCoachLevelPlanRequest({
+      goalText,
+      profileSkills,
+      levelLabels: LEVEL_LABELS,
+      maxItems: 6,
+    });
+    if (!request.goalText || !request.profileSkills.length) return;
+
+    setGenerating(true);
+    setError(null);
+    setSaveError(null);
+    try {
+      const response = await fetch('/api/ai-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ctx.token}`,
+          'X-Workspace-Id': activeScope.workspaceId,
+          'X-Home-Workspace-Id': ctx.workspaceId,
+        },
+        body: JSON.stringify(request),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json.error || `coach failed: ${response.status}`);
+      }
+
+      const transientPlan = {
+        id: `local-${Date.now()}`,
+        workspace_id: activeScope.workspaceId,
+        user_id: ctx.userId,
+        goal_text: request.goalText,
+        summary: json.summary,
+        items: json.items || [],
+        created_at: new Date().toISOString(),
+      };
+      setLatestPlan(transientPlan);
+
+      try {
+        const saved = await saveCoachSession({
+          db,
+          workspaceId: activeScope.workspaceId,
+          userId: ctx.userId,
+          goalText: request.goalText,
+          plan: json,
+        });
+        setLatestPlan(saved);
+        await reloadSessions();
+      } catch (sessionError) {
+        setSaveError(sessionError);
+      }
+    } catch (coachError) {
+      setError(coachError);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <div className="screen compact-screen coach-screen">
+      <TopBar title="AI Coach" onBack={onBack} />
+
+      {!hasProfileSkills && (
+        <section className="empty-panel">
+          <strong>Chưa có kỹ năng cá nhân</strong>
+          <p>Thêm kỹ năng trong hồ sơ trước khi tạo kế hoạch nâng level.</p>
+          <button type="button" onClick={onProfile}>Mở hồ sơ cá nhân</button>
+        </section>
+      )}
+
+      {hasProfileSkills && (
+        <section className="coach-goal-panel">
+          <label className="text-field">
+            <span>Mục tiêu</span>
+            <textarea
+              rows="3"
+              value={goalText}
+              maxLength="240"
+              onChange={(event) => setGoalText(event.target.value)}
+              placeholder="Ví dụ: Muốn lên Middle Frontend, muốn cải thiện Docker..."
+            />
+          </label>
+          <button type="button" onClick={generatePlan} disabled={!canGenerate}>
+            {generating ? 'Đang tạo...' : 'Tạo kế hoạch'}
+          </button>
+        </section>
+      )}
+
+      {error && (
+        <section className="data-error" role="alert">
+          <strong>Chưa tạo được kế hoạch</strong>
+          <p>{error.message}</p>
+        </section>
+      )}
+
+      {saveError && (
+        <section className="data-error" role="alert">
+          <strong>Kế hoạch đã tạo nhưng chưa lưu vào lịch sử</strong>
+          <p>{saveError.message}</p>
+        </section>
+      )}
+
+      {latestPlan && (
+        <CoachPlanCard session={latestPlan} skillMap={skillMap} featured />
+      )}
+
+      <section className="coach-history">
+        <header>
+          <strong>Lịch sử coach</strong>
+          <small>{loadingHistory ? 'Đang tải...' : `${sessions.length} phiên gần nhất`}</small>
+        </header>
+        {sessions.map((session) => (
+          <button key={session.id} type="button" onClick={() => setLatestPlan(session)}>
+            <span>{session.goal_text}</span>
+            <small>{formatDateTime(session.created_at)}</small>
+          </button>
+        ))}
+        {!loadingHistory && sessions.length === 0 && hasProfileSkills && (
+          <p>Chưa có lịch sử. Tạo kế hoạch đầu tiên để lưu lại.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function CoachPlanCard({ session, skillMap, featured = false }) {
+  return (
+    <section className={featured ? 'coach-plan coach-plan--featured' : 'coach-plan'}>
+      <header>
+        <span>{formatDateTime(session.created_at)}</span>
+        <strong>{session.goal_text}</strong>
+        <p>{session.summary}</p>
+      </header>
+      <div className="coach-plan-items">
+        {(session.items || []).map((item) => {
+          const skill = skillMap.get(item.skill_id) || { name: item.skill_id, icon: 'SK', iconUrl: null };
+          return (
+            <article className="coach-plan-item" key={item.skill_id}>
+              <SkillIcon skill={skill} compact />
+              <div>
+                <strong>{skill.name}</strong>
+                <small>{LEVEL_LABELS[item.current_level]} {'->'} {LEVEL_LABELS[item.target_level]}</small>
+                <p>{item.reason}</p>
+                <em>{item.next_step}</em>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(value));
+  } catch {
+    return '';
+  }
 }
 
 function ReportScreen({ teamCoverage, onBack }) {
