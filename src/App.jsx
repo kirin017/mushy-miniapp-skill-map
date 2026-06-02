@@ -425,7 +425,6 @@ function Overview({
   onMergePendingSkill,
   onRejectPendingSkill,
 }) {
-  const topSkills = skills.slice(0, 4);
   const [overviewSearch, setOverviewSearch] = useState('');
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -447,6 +446,7 @@ function Overview({
         ? `${coverage.statusCounts.growing} kỹ năng đang phát triển`
         : 'Theo nhóm kỹ năng';
   const profileSummary = buildProfileSummary({ currentMember, profileSkills, skills });
+  const priorityActions = teamCoverage.actions.slice(0, 4);
   const pendingSkills = uniqueBy(
     members.flatMap((member) => (
       member.pendingSkills || []
@@ -639,29 +639,31 @@ function Overview({
           </div>
         </section>
 
-        <button className="gap-banner" type="button" onClick={onReport} data-gsap="image-reveal">
-          <span aria-hidden="true">Gap</span>
-          <span>
-            <strong>Hành động ưu tiên</strong>
-            <small>{teamCoverage.actions.length ? `${teamCoverage.actions.length} điểm coverage cần xử lý.` : 'Team chưa có điểm coverage cần xử lý.'}</small>
-          </span>
-          <b>Xem chi tiết →</b>
-        </button>
-
-        <section className="panel popular-panel" data-gsap="image-reveal">
+        <section className="panel priority-panel" data-gsap="image-reveal">
           <div className="panel-head">
-            <h2>Kỹ năng phổ biến trong team</h2>
-            <button type="button" onClick={onSearch}>Xem tất cả</button>
+            <div>
+              <h2>Top hành động cần xử lý</h2>
+              <small>{priorityActions.length ? 'Ưu tiên theo mức thiếu coverage' : 'Coverage hiện ổn trong dữ liệu hiện tại'}</small>
+            </div>
+            <button type="button" onClick={onReport}>Xem hàng đợi</button>
           </div>
-          <div className="popular-grid">
-            {topSkills.map((skill) => (
-              <button key={skill.id} className="popular-card" type="button" onClick={() => onSelectSkill(skill.id)}>
-                <SkillIcon skill={skill} />
-                <strong>{skill.name}</strong>
-                <small>{skill.total}/{Math.max(members.length, 1)} người</small>
-                <i style={{ '--fill': `${Math.max(12, skill.total * 14)}%` }} />
+          <div className="priority-grid">
+            {priorityActions.map((row) => (
+              <button key={row.skill.id} className="priority-card" type="button" onClick={() => onSelectSkill(row.skill.id)}>
+                <SkillIcon skill={row.skill} />
+                <span>
+                  <strong>{row.skill.name}</strong>
+                  <small>{buildCoverageNextStep(row)}</small>
+                </span>
+                <b className={`coverage-status coverage-status--${row.status}`}>{coverageStatusLabel(row.status)}</b>
               </button>
             ))}
+            {priorityActions.length === 0 && (
+              <div className="priority-empty">
+                <strong>Chưa có hành động ưu tiên</strong>
+                <small>Team đang có primary và backup đủ tốt cho các kỹ năng đang theo dõi.</small>
+              </div>
+            )}
           </div>
         </section>
 
@@ -1595,41 +1597,49 @@ function formatDateTime(value) {
 }
 
 function ReportScreen({ teamCoverage, onBack }) {
-  const [fullOpen, setFullOpen] = useState(false);
   const actions = teamCoverage?.actions ?? [];
   const critical = actions.filter((row) => row.status === 'missing');
   const thin = actions.filter((row) => row.status === 'thin');
   const growth = actions.filter((row) => row.status === 'growing');
   const groups = [
-    { id: 'critical', title: 'Critical', rows: critical },
-    { id: 'thin', title: 'Thin coverage', rows: thin },
-    { id: 'growth', title: 'Growth opportunity', rows: growth },
+    { id: 'critical', title: 'Thiếu primary owner', summary: 'Cần chỉ định người chịu trách nhiệm chính.', rows: critical },
+    { id: 'thin', title: 'Thiếu backup', summary: 'Có owner nhưng chưa có phương án dự phòng.', rows: thin },
+    { id: 'growth', title: 'Cần mentor cho trainee', summary: 'Có người muốn học nhưng chưa có người dẫn rõ ràng.', rows: growth },
   ].filter((group) => group.rows.length > 0);
+  const counts = teamCoverage?.statusCounts ?? { missing: 0, thin: 0, growing: 0 };
 
   return (
     <div className="screen compact-screen">
-      <TopBar title="Hành động ưu tiên" onBack={onBack} />
-      <div className="warning-box">Danh sách này dựa trên primary owner, backup và trainee hiện có trong team.</div>
+      <TopBar title="Ưu tiên coverage" onBack={onBack} />
+      <section className="action-summary">
+        <strong>Việc cần xử lý tiếp theo</strong>
+        <p>{buildCoverageReportSummary(teamCoverage)}</p>
+        <div>
+          <span><b>{counts.missing ?? 0}</b><small>Thiếu primary</small></span>
+          <span><b>{counts.thin ?? 0}</b><small>Thiếu backup</small></span>
+          <span><b>{counts.growing ?? 0}</b><small>Cần mentor</small></span>
+        </div>
+      </section>
 
       <div className="risk-list action-report-list">
         {groups.map((group) => (
           <section className="action-report-group" key={group.id}>
             <header>
-              <strong>{group.title}</strong>
-              <small>{group.rows.length} hành động</small>
+              <div>
+                <strong>{group.title}</strong>
+                <small>{group.summary}</small>
+              </div>
+              <b>{group.rows.length}</b>
             </header>
             {group.rows.map((row) => (
               <article className="risk-card action-card" key={row.skill.id}>
                 <SkillIcon skill={row.skill} />
                 <div>
                   <strong>{row.skill.name}</strong>
-                  <small>{row.category} · {row.action}</small>
-                  <span>
-                    Primary: {row.primary?.name || 'Chưa có'} · Backup: {row.backups.length} · Trainee: {row.trainees.length}
-                  </span>
+                  <small>{row.category} · {buildCoverageNextStep(row)}</small>
+                  <span>Primary: {row.primary?.name || 'Chưa có'} · Backup: {row.backups.length} · Trainee: {row.trainees.length}</span>
                 </div>
                 <b className={`coverage-status coverage-status--${row.status}`}>{coverageStatusLabel(row.status)}</b>
-                <em aria-hidden="true">›</em>
               </article>
             ))}
           </section>
@@ -1642,16 +1652,6 @@ function ReportScreen({ teamCoverage, onBack }) {
           <p>Team hiện có primary và backup đủ tốt cho các kỹ năng đang theo dõi.</p>
         </section>
       )}
-
-      {fullOpen && (
-        <section className="full-report" aria-live="polite">
-          <strong>Tóm tắt báo cáo</strong>
-          <p>{buildCoverageReportSummary(teamCoverage)}</p>
-        </section>
-      )}
-      <button className="add-more" type="button" onClick={() => setFullOpen((open) => !open)}>
-        {fullOpen ? 'Thu gọn báo cáo' : 'Xem full báo cáo'}
-      </button>
     </div>
   );
 }
@@ -1679,10 +1679,17 @@ function normalizeText(value) {
 }
 
 function coverageStatusLabel(status) {
-  if (status === 'missing') return 'Missing';
-  if (status === 'thin') return 'Thin';
-  if (status === 'growing') return 'Growing';
-  return 'Healthy';
+  if (status === 'missing') return 'Thiếu owner';
+  if (status === 'thin') return 'Thiếu backup';
+  if (status === 'growing') return 'Cần mentor';
+  return 'Ổn định';
+}
+
+function buildCoverageNextStep(row) {
+  if (row.status === 'missing') return 'Chọn primary owner trước khi nhận thêm task.';
+  if (row.status === 'thin') return 'Tìm ít nhất một backup để giảm phụ thuộc.';
+  if (row.status === 'growing') return 'Ghép trainee với mentor hoặc task nhỏ.';
+  return 'Duy trì owner và backup hiện có.';
 }
 
 function buildCoverageReportSummary(teamCoverage) {
@@ -1711,7 +1718,7 @@ function BottomNav({ active, onChange }) {
     ['overview', 'Map', 'Tổng quan'],
     ['search', 'Find', 'Tìm kiếm'],
     ['profile', 'Profile', 'Cá nhân'],
-    ['report', 'Risk', 'Báo cáo'],
+    ['report', 'Action', 'Ưu tiên'],
   ];
   return (
     <nav className="bottom-nav" aria-label="Điều hướng">

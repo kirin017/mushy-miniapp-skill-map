@@ -232,7 +232,6 @@ textarea:focus-visible,
 .profile-settings,
 .skill-form,
 .delete-confirm,
-.full-report,
 .warning-box,
 .member-detail-card,
 .profile-card,
@@ -254,8 +253,7 @@ textarea:focus-visible,
 
 .panel,
 .quick-card,
-.gap-banner,
-.popular-card,
+.priority-card,
 .desktop-risk,
 .mini-member-list button,
 .bottom-nav {
@@ -293,8 +291,7 @@ textarea:focus-visible,
 .data-error p,
 .empty-panel p,
 .status-panel p,
-.warning-box,
-.full-report p {
+.warning-box {
   margin: 0;
 }
 
@@ -328,8 +325,7 @@ textarea:focus-visible,
 
 .status-panel strong,
 .data-error strong,
-.empty-panel strong,
-.full-report strong {
+.empty-panel strong {
   display: block;
   color: var(--ink);
 }
@@ -337,8 +333,7 @@ textarea:focus-visible,
 .status-panel p,
 .data-error p,
 .data-error small,
-.empty-panel p,
-.full-report p {
+.empty-panel p {
   margin-top: 5px;
   color: var(--muted);
   font-size: 13px;
@@ -596,8 +591,7 @@ textarea:focus-visible,
 }
 
 .quick-card,
-.gap-banner,
-.popular-card,
+.priority-card,
 .desktop-risk,
 .mini-member-list button {
   position: relative;
@@ -615,8 +609,7 @@ textarea:focus-visible,
 }
 
 .quick-card:hover,
-.gap-banner:hover,
-.popular-card:hover,
+.priority-card:hover,
 .desktop-risk:hover,
 .member-result:hover,
 .profile-skill:hover,
@@ -647,10 +640,8 @@ textarea:focus-visible,
 
 .quick-card strong,
 .quick-card small,
-.gap-banner strong,
-.gap-banner small,
-.popular-card strong,
-.popular-card small {
+.priority-card strong,
+.priority-card small {
   display: block;
 }
 
@@ -661,8 +652,7 @@ textarea:focus-visible,
 }
 
 .quick-card small,
-.gap-banner small,
-.popular-card small {
+.priority-card small {
   margin-top: 5px;
   color: var(--muted);
   font-size: 12px;
@@ -1239,6 +1229,57 @@ button.level-cell:hover {
   gap: 14px;
 }
 
+.action-summary {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(230, 57, 70, 0.045)),
+    var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.action-summary strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.action-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.action-summary > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.action-summary span {
+  display: grid;
+  gap: 3px;
+  min-height: 68px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(230, 57, 70, 0.045);
+}
+
+.action-summary b {
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.action-summary small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .action-report-group {
   display: grid;
   gap: 10px;
@@ -1251,11 +1292,35 @@ button.level-cell:hover {
   color: var(--muted);
 }
 
+.action-report-group > header div {
+  display: grid;
+  gap: 2px;
+}
+
+.action-report-group > header strong {
+  color: var(--ink);
+}
+
+.action-report-group > header b {
+  min-width: 30px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(230, 57, 70, 0.1);
+  color: var(--accent);
+  font-size: 12px;
+}
+
 .action-card span {
   display: block;
   margin-top: 6px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.action-card {
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 .search-hint {
@@ -1294,18 +1359,8 @@ button.level-cell:hover {
   color: var(--muted);
 }
 
-.gap-banner {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-  min-height: 110px;
-  padding: 16px;
-}
-
-.gap-banner::before,
 .desktop-risk::before,
-.popular-card::before,
+.priority-card::before,
 .motion-image::before {
   content: '';
   position: absolute;
@@ -1319,7 +1374,6 @@ button.level-cell:hover {
   mask-image: linear-gradient(90deg, transparent, #000 55%, transparent);
 }
 
-.gap-banner > span:first-child,
 .desktop-risk span {
   display: grid;
   place-items: center;
@@ -1334,12 +1388,6 @@ button.level-cell:hover {
   text-transform: uppercase;
 }
 
-.gap-banner strong {
-  color: var(--ink);
-  font-size: 17px;
-}
-
-.gap-banner b,
 .desktop-risk b {
   position: relative;
   z-index: 1;
@@ -1348,33 +1396,57 @@ button.level-cell:hover {
   white-space: nowrap;
 }
 
-.popular-grid {
+.priority-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.popular-card {
+.priority-card {
   display: grid;
-  align-content: start;
-  gap: 8px;
-  min-height: 148px;
-  padding: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 82px;
+  padding: 12px;
 }
 
-.popular-card > * {
+.priority-card > * {
   position: relative;
   z-index: 1;
 }
 
-.popular-card strong {
-  margin-top: 6px;
+.priority-card strong {
   color: var(--ink);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.popular-card i,
+.priority-card small {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.priority-empty {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: rgba(230, 57, 70, 0.045);
+}
+
+.priority-empty strong {
+  color: var(--ink);
+}
+
+.priority-empty small {
+  color: var(--muted);
+}
+
 .risk-card i {
   position: relative;
   display: block;
@@ -1385,7 +1457,6 @@ button.level-cell:hover {
   background: rgba(230, 57, 70, 0.08);
 }
 
-.popular-card i::after,
 .risk-card i::after {
   content: '';
   position: absolute;
@@ -2015,7 +2086,6 @@ button.level-cell:hover {
 
 .skill-form,
 .delete-confirm,
-.full-report,
 .profile-settings,
 .pending-profile {
   padding: 14px;
@@ -2458,7 +2528,8 @@ button.level-cell:hover {
   .skill-marquee,
   .search-row,
   .filter-panel,
-  .popular-panel,
+  .coverage-panel,
+  .priority-panel,
   .motion-lab,
   .pending-review {
     grid-column: 1 / -1;
@@ -2468,18 +2539,8 @@ button.level-cell:hover {
     grid-column: span 8;
   }
 
-  .gap-banner,
   .overview-profile-card {
     grid-column: span 4;
-  }
-
-  .gap-banner {
-    align-self: stretch;
-    grid-template-columns: 1fr;
-  }
-
-  .gap-banner b {
-    justify-self: start;
   }
 
   .desktop-companion {
@@ -2517,7 +2578,7 @@ button.level-cell:hover {
     display: none;
   }
 
-  .popular-grid {
+  .priority-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -2614,12 +2675,18 @@ button.level-cell:hover {
     gap: 10px;
   }
 
-  .popular-grid {
+  .priority-grid,
+  .action-summary > div {
     grid-template-columns: 1fr;
   }
 
-  .popular-card {
-    min-height: 112px;
+  .priority-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 76px;
+  }
+
+  .priority-card .coverage-status {
+    grid-column: 2 / -1;
   }
 
   .motion-stack article {
@@ -2701,14 +2768,6 @@ button.level-cell:hover {
   .profile-head {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .gap-banner {
-    grid-template-columns: 1fr;
-  }
-
-  .gap-banner b {
-    justify-self: start;
   }
 
   .profile-skill {
