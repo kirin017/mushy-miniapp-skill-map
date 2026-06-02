@@ -1472,11 +1472,26 @@ test('ai coach migration creates personal session history with scoped RLS', () =
   assert.match(sql, /summary text not null/);
   assert.match(sql, /items jsonb not null default '\[\]'::jsonb/);
   assert.match(sql, /check \(jsonb_typeof\(items\) = 'array'\)/);
-  assert.match(sql, /idx_ai_coach_sessions_workspace_user_created/);
+  assert.match(
+    sql,
+    /create index if not exists idx_ai_coach_sessions_workspace_user_created\s+on app_skill_map\.ai_coach_sessions \(workspace_id, user_id, created_at desc\)/
+  );
   assert.match(sql, /grant select, insert on app_skill_map\.ai_coach_sessions to authenticated/);
   assert.match(sql, /alter table app_skill_map\.ai_coach_sessions enable row level security/);
-  assert.match(sql, /ai_coach_sessions_select/);
-  assert.match(sql, /ai_coach_sessions_insert/);
-  assert.match(sql, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
-  assert.match(sql, /user_id = auth\.uid\(\)/);
+  assert.match(sql, /drop policy if exists "ai_coach_sessions_select" on app_skill_map\.ai_coach_sessions/);
+  assert.match(sql, /drop policy if exists "ai_coach_sessions_insert" on app_skill_map\.ai_coach_sessions/);
+
+  const selectPolicy = sql.match(/create policy "ai_coach_sessions_select"[\s\S]*?;/)?.[0] ?? '';
+  const insertPolicy = sql.match(/create policy "ai_coach_sessions_insert"[\s\S]*?;/)?.[0] ?? '';
+
+  assert.match(selectPolicy, /create policy "ai_coach_sessions_select" on app_skill_map\.ai_coach_sessions/);
+  assert.match(
+    selectPolicy,
+    /for select using \(\s+public\.can_access_app_data\(workspace_id, 'skill-map'\)\s+and user_id = auth\.uid\(\)\s+\)/
+  );
+  assert.match(insertPolicy, /create policy "ai_coach_sessions_insert" on app_skill_map\.ai_coach_sessions/);
+  assert.match(
+    insertPolicy,
+    /for insert with check \(\s+public\.can_access_app_data\(workspace_id, 'skill-map'\)\s+and user_id = auth\.uid\(\)\s+\)/
+  );
 });
