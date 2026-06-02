@@ -1408,13 +1408,13 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
     setLoadingHistory(true);
     try {
       const rows = await listCoachSessions({
-        db,
+        supabase: db,
         workspaceId: activeScope.workspaceId,
         userId: ctx.userId,
         limit: 10,
       });
       setSessions(rows);
-      setLatestPlan((current) => current || rows[0] || null);
+      setLatestPlan(rows[0] || null);
     } catch (historyError) {
       setError(historyError);
     } finally {
@@ -1467,7 +1467,7 @@ function CoachScreen({ ctx, activeScope, profileSkills, skillCatalog, onBack, on
 
       try {
         const saved = await saveCoachSession({
-          db,
+          supabase: db,
           workspaceId: activeScope.workspaceId,
           userId: ctx.userId,
           goalText: request.goalText,
