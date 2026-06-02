@@ -21,7 +21,7 @@ import {
 } from '../src/lib/app/ai-coach.js';
 import { STANDARD_SKILLS } from '../src/lib/app/skill-catalog.js';
 
-const GEMINI_FLASH_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_FLASH_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 const MAX_ROLE_TEXT_LENGTH = 160;
 const MAX_ROLE_PROMPT_LENGTH = 12000;
 const MAX_COACH_PROMPT_LENGTH = 12000;
