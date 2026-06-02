@@ -60,7 +60,7 @@ function SkillMapApp({ ctx }) {
   const activeScope = useActiveScope();
   const isWorkspaceAdmin = useIsCurrentWorkspaceAdmin(activeScope.workspaceId);
   const [tab, setTab] = useState('overview');
-  const [query, setQuery] = useState('Docker');
+  const [query, setQuery] = useState('');
   const [selectedSkill, setSelectedSkill] = useState('docker');
   const [view, setView] = useState(EMPTY_VIEW);
   const [loading, setLoading] = useState(true);
@@ -447,6 +447,12 @@ function Overview({
         : 'Theo nhóm kỹ năng';
   const profileSummary = buildProfileSummary({ currentMember, profileSkills, skills });
   const priorityActions = teamCoverage.actions.slice(0, 4);
+  const workflowItems = buildWorkflowItems({
+    priorityCount: teamCoverage.actions.length,
+    profileSkillCount: profileSummary.skillCount,
+    learningCount: profileSummary.learningCount,
+    memberCount: members.length,
+  });
   const pendingSkills = uniqueBy(
     members.flatMap((member) => (
       member.pendingSkills || []
@@ -522,6 +528,33 @@ function Overview({
             </span>
           </button>
         </div>
+
+        <section className="panel workflow-panel" data-gsap="fade-up">
+          <div className="panel-head">
+            <div>
+              <h2>Luồng sử dụng chính</h2>
+              <small>Ưu tiên theo dữ liệu workspace hiện tại</small>
+            </div>
+          </div>
+          <div className="workflow-grid">
+            {workflowItems.map((item) => {
+              const handleClick = item.target === 'report'
+                ? onReport
+                : item.target === 'search'
+                  ? onSearch
+                  : item.target === 'profile'
+                    ? onProfile
+                    : onCoach;
+              return (
+                <button key={item.target} className="workflow-card" type="button" onClick={handleClick}>
+                  <span>{item.step}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         <div className="search-row" data-gsap="fade-up">
           <label className="search-pill overview-search" htmlFor="overview-search">
@@ -667,32 +700,6 @@ function Overview({
           </div>
         </section>
 
-        <section className="panel motion-lab" data-gsap="desire">
-          <div className="motion-lab-title" data-gsap="pin-title">
-            <h2>Đọc năng lực như một bản đồ sống</h2>
-            <p>Mỗi hàng coverage biến thành tín hiệu cho owner, backup, mentoring và kế hoạch học tập tiếp theo.</p>
-          </div>
-          <div className="motion-stack">
-            {teamCoverage.actions.slice(0, 3).map((row, index) => (
-              <article key={row.skill.id} data-gsap="image-reveal">
-                <div className="motion-image" data-skill-state={row.status === 'healthy' ? 'stable' : 'risk'} aria-hidden="true" />
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <em className={`coverage-status coverage-status--${row.status}`}>{coverageStatusLabel(row.status)}</em>
-                <strong>{row.skill.name}</strong>
-                <small>{row.action}</small>
-              </article>
-            ))}
-            {teamCoverage.actions.length === 0 && (
-              <article data-gsap="image-reveal">
-                <div className="motion-image" data-skill-state="stable" aria-hidden="true" />
-                <span>01</span>
-                <strong>Coverage ổn định</strong>
-                <small>Chưa có hành động ưu tiên trong dữ liệu hiện tại.</small>
-              </article>
-            )}
-          </div>
-        </section>
-
         <section className="panel overview-profile-card">
           <div className="panel-head">
             <h2>Hồ sơ của bạn</h2>
@@ -722,17 +729,6 @@ function Overview({
         )}
       </div>
 
-      <DesktopCompanion
-        skills={skills}
-        members={members}
-        currentMember={currentMember}
-        selectedSkill={selectedSkill}
-        profileSkills={profileSkills}
-        onSearch={onSearch}
-        onReport={onReport}
-        onProfile={onProfile}
-        onSelectSkill={onSelectSkill}
-      />
     </div>
   );
 }
@@ -767,73 +763,6 @@ function PendingSkillReview({ pendingSkills, approvedSkills, saving, onApprove, 
         ))}
       </div>
     </section>
-  );
-}
-
-function DesktopCompanion({ skills, members, currentMember, selectedSkill, profileSkills, onSearch, onReport, onProfile, onSelectSkill }) {
-  const selected = skills.find((skill) => skill.id === selectedSkill) || skills[0] || INITIAL_SKILLS[0];
-  const profileSummary = buildProfileSummary({ currentMember, profileSkills, skills });
-  const topMembers = members
-    .map((member) => ({
-      ...member,
-      level: member.skills[selected.id] || 0,
-      interest: Math.max(1, Math.min(3, (member.skills[selected.id] || 0) - 1)),
-    }))
-    .filter((member) => member.level > 0)
-    .sort((a, b) => b.level - a.level)
-    .slice(0, 4);
-
-  return (
-    <aside className="desktop-companion" aria-label="Desktop preview">
-      <section className="panel companion-card companion-search">
-        <div className="panel-head">
-          <h2>Tìm nhanh</h2>
-          <button type="button" onClick={onSearch}>Mở</button>
-        </div>
-        <div className="skill-focus">
-          <SkillIcon skill={selected} />
-          <div>
-            <strong>{selected.name}</strong>
-            <small>{topMembers.length} người phù hợp nhất</small>
-          </div>
-        </div>
-        <div className="mini-member-list">
-          {topMembers.map((member) => (
-            <button key={member.id} type="button" onClick={() => onSelectSkill(selected.id)}>
-              <MemberAvatar member={member} />
-              <span>
-                <strong>{member.name}</strong>
-                <small>Level {member.level} · Quan tâm {member.interest}</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel companion-card">
-        <div className="panel-head">
-          <h2>Hồ sơ của bạn</h2>
-          <button type="button" onClick={onProfile}>Sửa</button>
-        </div>
-        <div className="desktop-profile">
-          <ProfileAvatar summary={profileSummary} />
-          <div>
-            <strong>{profileSummary.name}</strong>
-            <small>{profileSummary.skillCount} kỹ năng nổi bật · {profileSummary.learningCount} đang học</small>
-          </div>
-        </div>
-        <div className="desktop-skill-tags">
-          {profileSummary.featuredSkills.map((skill) => <b key={skill}>{skill}</b>)}
-        </div>
-      </section>
-
-      <button className="desktop-risk" type="button" onClick={onReport} data-gsap="image-reveal">
-        <span>!</span>
-        <strong>Kỹ năng cần bổ sung</strong>
-        <small>DevOps, Testing, Security đang thiếu mentor.</small>
-        <b>Xem báo cáo →</b>
-      </button>
-    </aside>
   );
 }
 
@@ -1703,6 +1632,35 @@ function buildCoverageReportSummary(teamCoverage) {
   return `Ưu tiên xử lý ${missing} kỹ năng thiếu primary, ${thin} kỹ năng thiếu backup, và ${growing} kỹ năng có trainee cần được dẫn dắt.`;
 }
 
+function buildWorkflowItems({ priorityCount, profileSkillCount, learningCount, memberCount }) {
+  return [
+    {
+      target: 'report',
+      step: '01',
+      title: priorityCount ? `${priorityCount} ưu tiên coverage` : 'Coverage ổn định',
+      detail: priorityCount ? 'Xử lý owner, backup, mentor' : 'Theo dõi khi team đổi kỹ năng',
+    },
+    {
+      target: 'search',
+      step: '02',
+      title: `${memberCount} thành viên`,
+      detail: 'Tìm người theo kỹ năng đang cần',
+    },
+    {
+      target: 'profile',
+      step: '03',
+      title: `${profileSkillCount} kỹ năng cá nhân`,
+      detail: learningCount ? `${learningCount} kỹ năng đang học` : 'Cập nhật level và quan tâm',
+    },
+    {
+      target: 'coach',
+      step: '04',
+      title: 'AI Coach',
+      detail: profileSkillCount ? 'Tạo kế hoạch nâng level' : 'Cần hồ sơ kỹ năng trước',
+    },
+  ];
+}
+
 function uniqueBy(items, keyFn) {
   const seen = new Set();
   return items.filter((item) => {
@@ -1718,6 +1676,7 @@ function BottomNav({ active, onChange }) {
     ['overview', 'Map', 'Tổng quan'],
     ['search', 'Find', 'Tìm kiếm'],
     ['profile', 'Profile', 'Cá nhân'],
+    ['coach', 'Coach', 'Coach'],
     ['report', 'Action', 'Ưu tiên'],
   ];
   return (

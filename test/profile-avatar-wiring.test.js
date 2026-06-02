@@ -89,6 +89,21 @@ test('Overview renders the skill marquee before quick action cards', () => {
   assert.match(overviewSource, /className="skill-marquee-item"/);
 });
 
+test('Overview uses a data-driven workflow rail instead of decorative feature surfaces', () => {
+  const source = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+  const overviewStart = source.indexOf('function Overview');
+  const pendingReviewStart = source.indexOf('function PendingSkillReview');
+  const overviewSource = source.slice(overviewStart, pendingReviewStart);
+
+  assert.match(overviewSource, /workflowItems = buildWorkflowItems/);
+  assert.match(overviewSource, /className="panel workflow-panel"/);
+  assert.match(overviewSource, /className="workflow-card"/);
+  assert.match(source, /function buildWorkflowItems/);
+  assert.match(source, /\['coach', 'Coach', 'Coach'\]/);
+  assert.doesNotMatch(overviewSource, /motion-lab/);
+  assert.doesNotMatch(source, /DevOps, Testing, Security/);
+});
+
 test('Find tab compact layout prevents chip rows from widening the viewport', () => {
   const source = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
 
