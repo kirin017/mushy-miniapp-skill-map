@@ -1461,3 +1461,22 @@ test('reset migration rebuilds skill map schema from scratch', () => {
   assert.match(sql, /create policy "member_skills_update" on app_skill_map\.member_skills/);
   assert.match(sql, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
 });
+
+test('ai coach migration creates personal session history with scoped RLS', () => {
+  const sql = readFileSync(new URL('../migrations/006_ai_coach_sessions.sql', import.meta.url), 'utf8');
+
+  assert.match(sql, /create table if not exists app_skill_map\.ai_coach_sessions/);
+  assert.match(sql, /workspace_id uuid not null references public\.workspaces\(id\) on delete cascade/);
+  assert.match(sql, /user_id uuid not null references auth\.users\(id\) on delete cascade/);
+  assert.match(sql, /goal_text text not null/);
+  assert.match(sql, /summary text not null/);
+  assert.match(sql, /items jsonb not null default '\[\]'::jsonb/);
+  assert.match(sql, /check \(jsonb_typeof\(items\) = 'array'\)/);
+  assert.match(sql, /idx_ai_coach_sessions_workspace_user_created/);
+  assert.match(sql, /grant select, insert on app_skill_map\.ai_coach_sessions to authenticated/);
+  assert.match(sql, /alter table app_skill_map\.ai_coach_sessions enable row level security/);
+  assert.match(sql, /ai_coach_sessions_select/);
+  assert.match(sql, /ai_coach_sessions_insert/);
+  assert.match(sql, /public\.can_access_app_data\(workspace_id, 'skill-map'\)/);
+  assert.match(sql, /user_id = auth\.uid\(\)/);
+});
