@@ -1238,6 +1238,87 @@ test('loadSkillMapData syncs catalog rows and continues when catalog sync is blo
   assert.deepEqual(view.skills.map((skill) => skill.name), ['React']);
 });
 
+test('loadSkillMapData repairs catalog sync when legacy skills already use catalog names', async () => {
+  const upserts = [];
+  const updates = [];
+  const existingSkills = [{
+    id: 'skill-react-legacy',
+    name: 'React',
+    category: 'Frontend',
+    is_preset: false,
+    status: 'approved',
+    catalog_key: null,
+    source: 'legacy',
+  }];
+  const db = {
+    from(table) {
+      return {
+        upsert(rows, options) {
+          upserts.push({ table, rows, options });
+          if (upserts.length === 1) {
+            return Promise.resolve({
+              data: null,
+              error: {
+                code: '23505',
+                message: 'duplicate key value violates unique constraint "skills_workspace_name_unique"',
+              },
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+        update(patch) {
+          const call = { table, patch, filters: {} };
+          updates.push(call);
+          const query = {
+            eq(column, value) {
+              call.filters[column] = value;
+              return query;
+            },
+            then(resolve) {
+              existingSkills[0] = { ...existingSkills[0], ...patch };
+              return Promise.resolve({ data: null, error: null }).then(resolve);
+            },
+          };
+          return query;
+        },
+        select() {
+          const query = {
+            eq() {
+              return query;
+            },
+            in() {
+              return Promise.resolve({ data: [], error: null });
+            },
+            then(resolve) {
+              if (table === 'skills') {
+                return Promise.resolve({ data: existingSkills, error: null }).then(resolve);
+              }
+              return Promise.resolve({ data: [], error: null }).then(resolve);
+            },
+          };
+          return query;
+        },
+      };
+    },
+  };
+
+  const view = await loadSkillMapData({
+    db,
+    listMembers: async () => [{ user_id: 'u-me', full_name: 'Nguyen Ha My' }],
+    workspaceId: 'ws-active',
+    userId: 'u-me',
+  });
+
+  assert.equal(upserts.length, 2);
+  assert.equal(upserts[1].rows.some((row) => row.name === 'React'), false);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].filters.workspace_id, 'ws-active');
+  assert.equal(updates[0].filters.name, 'React');
+  assert.equal(updates[0].patch.catalog_key, 'frontend.react');
+  assert.equal(updates[0].patch.source, 'catalog');
+  assert.deepEqual(view.skills.map((skill) => skill.name), ['React']);
+});
+
 test('loadSkillMapData passes app profile through when member lookup returns no current user', async () => {
   const listMemberCalls = [];
   const db = {

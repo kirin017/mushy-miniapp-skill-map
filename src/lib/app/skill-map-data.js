@@ -685,11 +685,64 @@ async function syncCatalogSkillRows({ db, workspaceId, userId }) {
     });
     if (error) {
       if (isCatalogSyncPermissionError(error)) return;
+      if (isUniqueViolation(error)) {
+        await repairCatalogSkillRowsByName({ db, workspaceId, rows });
+        return;
+      }
       throw error;
     }
   } catch (error) {
     if (isCatalogSyncPermissionError(error)) return;
     throw new Error(`sync catalog skills: ${error?.message || String(error)}`);
+  }
+}
+
+async function repairCatalogSkillRowsByName({ db, workspaceId, rows }) {
+  const { data: existingRows, error: selectError } = await db
+    .from('skills')
+    .select('id,name,catalog_key')
+    .eq('workspace_id', workspaceId);
+  if (selectError) {
+    if (isCatalogSyncPermissionError(selectError)) return;
+    throw selectError;
+  }
+
+  const existingByName = new Map((existingRows || []).map((row) => [row.name, row]));
+  const catalogKeysInUse = new Set((existingRows || []).map((row) => row.catalog_key).filter(Boolean));
+  const rowsToInsert = [];
+
+  for (const row of rows) {
+    const existing = existingByName.get(row.name);
+    if (!existing) {
+      if (!catalogKeysInUse.has(row.catalog_key)) {
+        catalogKeysInUse.add(row.catalog_key);
+        rowsToInsert.push(row);
+      }
+      continue;
+    }
+
+    if (existing.catalog_key === row.catalog_key || catalogKeysInUse.has(row.catalog_key)) continue;
+    const { workspace_id: _workspaceId, created_by: _createdBy, ...patch } = row;
+    const { error: updateError } = await db
+      .from('skills')
+      .update(patch)
+      .eq('workspace_id', workspaceId)
+      .eq('name', row.name);
+    if (updateError) {
+      if (isCatalogSyncPermissionError(updateError)) return;
+      if (!isUniqueViolation(updateError)) throw updateError;
+    }
+    catalogKeysInUse.add(row.catalog_key);
+  }
+
+  if (!rowsToInsert.length) return;
+  const { error: insertError } = await db.from('skills').upsert(rowsToInsert, {
+    onConflict: 'workspace_id,catalog_key',
+    ignoreDuplicates: true,
+  });
+  if (insertError) {
+    if (isCatalogSyncPermissionError(insertError)) return;
+    throw insertError;
   }
 }
 
