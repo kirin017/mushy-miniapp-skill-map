@@ -7,6 +7,7 @@ const DEFAULT_MAX_ITEMS = 6;
 const HARD_MAX_ITEMS = 8;
 const MAX_SKILL_LEVEL = 4;
 const SESSION_COLUMNS = 'id,workspace_id,user_id,goal_text,summary,items,created_at';
+const DEFAULT_LEVEL_PLAN_SUMMARY = 'Kế hoạch tập trung nâng cấp kỹ năng tiếp theo.';
 
 export function buildCoachLevelPlanRequest({
   goalText = '',
@@ -79,7 +80,7 @@ export function validateCoachLevelPlanPayload({
   }
 
   return {
-    summary: cleanText(payload?.summary, MAX_SUMMARY_LENGTH),
+    summary: cleanText(payload?.summary, MAX_SUMMARY_LENGTH) || DEFAULT_LEVEL_PLAN_SUMMARY,
     items,
   };
 }

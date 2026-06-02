@@ -125,6 +125,25 @@ test('validateCoachLevelPlanPayload drops AI items with invalid submitted levels
   ]);
 });
 
+test('validateCoachLevelPlanPayload defaults missing or blank summaries when valid items remain', () => {
+  for (const summary of [undefined, '   \n\t  ']) {
+    const validated = validateCoachLevelPlanPayload({
+      profileSkills,
+      payload: {
+        summary,
+        items: [
+          { skill_id: 'react', current_level: 2, target_level: 3 },
+        ],
+      },
+    });
+
+    assert.equal(validated.summary, 'Kế hoạch tập trung nâng cấp kỹ năng tiếp theo.');
+    assert.deepEqual(validated.items, [
+      { skill_id: 'react', current_level: 2, target_level: 3, reason: '', next_step: '' },
+    ]);
+  }
+});
+
 test('validateCoachLevelPlanPayload rejects string AI levels without normalizing them', () => {
   assert.throws(
     () => validateCoachLevelPlanPayload({
